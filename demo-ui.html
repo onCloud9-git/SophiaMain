@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sophia AI - Business Agent Demo</title>
+    <style>
+        /* Sophia AI Soft UI Design System */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #F8F9FA;
+            color: #2D3748;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        /* Soft UI Card Component */
+        .card {
+            background: #FFFFFF;
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: 
+                8px 8px 16px rgba(174, 174, 192, 0.4),
+                -8px -8px 16px rgba(255, 255, 255, 0.8);
+            border: 1px solid #E2E8F0;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                12px 12px 24px rgba(174, 174, 192, 0.5),
+                -12px -12px 24px rgba(255, 255, 255, 0.9);
+        }
+
+        .card.clickable {
+            cursor: pointer;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .title {
+            font-size: 30px;
+            font-weight: bold;
+            color: #2D3748;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #718096;
+            line-height: 1.5;
+        }
+
+        /* Connection Status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            margin-bottom: 16px;
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #48BB78;
+            margin-right: 8px;
+        }
+
+        .connection-text {
+            font-size: 12px;
+            color: #718096;
+            font-weight: 500;
+        }
+
+        /* Section Titles */
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2D3748;
+            margin-bottom: 16px;
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            margin-bottom: 32px;
+        }
+
+        .action-card {
+            text-align: center;
+            padding: 32px 24px;
+        }
+
+        .action-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2D3748;
+            margin-bottom: 8px;
+        }
+
+        .action-description {
+            font-size: 16px;
+            color: #718096;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667EEA, #764BA2);
+            color: white;
+            box-shadow: 
+                4px 4px 8px rgba(102, 126, 234, 0.3),
+                -4px -4px 8px rgba(255, 255, 255, 0.8);
+        }
+
+        .btn-secondary {
+            background: #F1F3F6;
+            color: #667EEA;
+            box-shadow: 
+                4px 4px 8px rgba(174, 174, 192, 0.4),
+                -4px -4px 8px rgba(255, 255, 255, 0.8);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        /* Stats */
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            flex: 1;
+            text-align: center;
+            padding: 24px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667EEA;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #718096;
+            font-weight: 500;
+        }
+
+        /* Business Cards */
+        .business-card {
+            margin-bottom: 12px;
+        }
+
+        .business-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .business-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2D3748;
+            margin-bottom: 4px;
+        }
+
+        .business-industry {
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-active {
+            background: rgba(72, 187, 120, 0.2);
+            color: #48BB78;
+        }
+
+        .status-developing {
+            background: rgba(236, 201, 75, 0.2);
+            color: #ECC94B;
+        }
+
+        .status-deploying {
+            background: rgba(102, 126, 234, 0.2);
+            color: #667EEA;
+        }
+
+        .business-description {
+            font-size: 16px;
+            color: #718096;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        .business-price {
+            font-size: 16px;
+            font-weight: 600;
+            color: #667EEA;
+            margin-bottom: 16px;
+        }
+
+        .business-metrics {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 16px;
+            border-top: 1px solid #E2E8F0;
+        }
+
+        .metric {
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2D3748;
+            margin-bottom: 4px;
+        }
+
+        .metric-label {
+            font-size: 10px;
+            color: #718096;
+            font-weight: 500;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+
+        /* Navigation */
+        .nav-tabs {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #FFFFFF;
+            border-radius: 24px 24px 0 0;
+            padding: 16px 24px;
+            box-shadow: 
+                0 -8px 16px rgba(174, 174, 192, 0.4),
+                0 -4px 8px rgba(255, 255, 255, 0.8);
+            display: flex;
+            gap: 32px;
+            min-width: 300px;
+            justify-content: center;
+        }
+
+        .nav-tab {
+            text-align: center;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab.active {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667EEA;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        .nav-label {
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Connection Status -->
+        <div class="connection-status">
+            <div class="connection-dot"></div>
+            <span class="connection-text">Connected</span>
+        </div>
+
+        <!-- Dashboard Screen -->
+        <div id="dashboard" class="screen active">
+            <!-- Header -->
+            <div class="header">
+                <h1 class="title">Welcome to Sophia AI</h1>
+                <p class="subtitle">Your autonomous business creation and management platform</p>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h2 class="section-title">Quick Actions</h2>
+                
+                <div class="card action-card clickable fade-in" onclick="showToast('Creating new business...')">
+                    <h3 class="action-title">Create New Business</h3>
+                    <p class="action-description">Let Sophia AI create and manage a complete business for you automatically</p>
+                    <button class="btn btn-primary">Get Started</button>
+                </div>
+
+                <div class="card action-card clickable fade-in" onclick="showToast('Starting AI research...')">
+                    <h3 class="action-title">AI Research Mode</h3>
+                    <p class="action-description">Let AI conduct market research and propose business ideas</p>
+                    <button class="btn btn-secondary">Start Research</button>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div>
+                <h2 class="section-title">Overview</h2>
+                <div class="stats-row">
+                    <div class="card stat-card fade-in">
+                        <div class="stat-value">3</div>
+                        <div class="stat-label">Active Businesses</div>
+                    </div>
+                    <div class="card stat-card fade-in">
+                        <div class="stat-value">$2,847</div>
+                        <div class="stat-label">Monthly Revenue</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Businesses -->
+            <div>
+                <h2 class="section-title">Recent Businesses</h2>
+                
+                <div class="card business-card clickable fade-in" onclick="showBusinessDetails('TaskFlow Pro')">
+                    <div class="business-header">
+                        <div>
+                            <h3 class="business-title">TaskFlow Pro</h3>
+                            <p class="business-industry">SaaS</p>
+                        </div>
+                        <div class="status-badge status-active">Active</div>
+                    </div>
+                    <p class="business-description">AI-powered task management platform that helps teams organize, prioritize, and complete projects efficiently.</p>
+                    <p class="business-price">$29.99/month</p>
+                    <div class="business-metrics">
+                        <div class="metric">
+                            <div class="metric-value">2.3K</div>
+                            <div class="metric-label">Visitors</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">87</div>
+                            <div class="metric-label">Conversions</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">$1,247</div>
+                            <div class="metric-label">Revenue</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card business-card clickable fade-in" onclick="showBusinessDetails('FitTracker AI')">
+                    <div class="business-header">
+                        <div>
+                            <h3 class="business-title">FitTracker AI</h3>
+                            <p class="business-industry">Health & Fitness</p>
+                        </div>
+                        <div class="status-badge status-developing">Developing</div>
+                    </div>
+                    <p class="business-description">Smart fitness tracking app with personalized workout plans and nutrition guidance.</p>
+                    <p class="business-price">$19.99/month</p>
+                    <div class="business-metrics">
+                        <div class="metric">
+                            <div class="metric-value">1.1K</div>
+                            <div class="metric-label">Visitors</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">43</div>
+                            <div class="metric-label">Conversions</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">$800</div>
+                            <div class="metric-label">Revenue</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card business-card clickable fade-in" onclick="showBusinessDetails('LearnCode Hub')">
+                    <div class="business-header">
+                        <div>
+                            <h3 class="business-title">LearnCode Hub</h3>
+                            <p class="business-industry">Education</p>
+                        </div>
+                        <div class="status-badge status-deploying">Deploying</div>
+                    </div>
+                    <p class="business-description">Interactive coding bootcamp platform with live mentorship and project-based learning.</p>
+                    <p class="business-price">$49.99/month</p>
+                    <div class="business-metrics">
+                        <div class="metric">
+                            <div class="metric-value">856</div>
+                            <div class="metric-label">Visitors</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">21</div>
+                            <div class="metric-label">Conversions</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Revenue</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Screen -->
+        <div id="analytics" class="screen">
+            <div class="header">
+                <h1 class="title">Analytics</h1>
+            </div>
+            
+            <div class="card fade-in" style="text-align: center; padding: 48px 24px;">
+                <h3 style="font-size: 20px; color: #2D3748; margin-bottom: 16px;">Analytics Dashboard Coming Soon</h3>
+                <p style="color: #718096; margin-bottom: 24px;">Once you create your first business, you'll see detailed analytics, performance metrics, and AI-powered insights here.</p>
+                <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+                <button class="btn btn-secondary" onclick="switchTab('dashboard')">Back to Dashboard</button>
+            </div>
+        </div>
+
+        <div style="height: 120px;"></div> <!-- Spacer for fixed nav -->
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-tabs">
+        <div class="nav-tab active" onclick="switchTab('dashboard')">
+            <div class="nav-icon">🏠</div>
+            <div class="nav-label">Dashboard</div>
+        </div>
+        <div class="nav-tab" onclick="switchTab('businesses')">
+            <div class="nav-icon">💼</div>
+            <div class="nav-label">Businesses</div>
+        </div>
+        <div class="nav-tab" onclick="switchTab('analytics')">
+            <div class="nav-icon">📊</div>
+            <div class="nav-label">Analytics</div>
+        </div>
+        <div class="nav-tab" onclick="switchTab('profile')">
+            <div class="nav-icon">👤</div>
+            <div class="nav-label">Profile</div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Hide all screens
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected screen
+            const targetScreen = document.getElementById(tabName);
+            if (targetScreen) {
+                targetScreen.classList.add('active');
+            }
+            
+            // Add active class to clicked tab
+            event.target.closest('.nav-tab').classList.add('active');
+        }
+
+        function showToast(message) {
+            // Create toast notification
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #667EEA;
+                color: white;
+                padding: 16px 24px;
+                border-radius: 12px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 1000;
+                font-weight: 500;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 3000);
+        }
+
+        function showBusinessDetails(businessName) {
+            showToast(`Opening ${businessName} details...`);
+        }
+
+        // Add fade-in animation to cards with delay
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.fade-in');
+            cards.forEach((card, index) => {
+                card.style.animationDelay = `${index * 0.1}s`;
+            });
+        });
+    </script>
+</body>
+</html>

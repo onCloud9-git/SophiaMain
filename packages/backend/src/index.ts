@@ -9,7 +9,7 @@ import { createServer } from 'http'
 import winston from 'winston'
 
 // Import routes
-import { authRoutes, businessRoutes, stripeRoutes, analyticsRoutes } from './routes'
+import { authRoutes, businessRoutes, stripeRoutes, analyticsRoutes, marketingRoutes } from './routes'
 import { jobDashboardRoutes, JobManager } from './jobs'
 import { webSocketService } from './services'
 
@@ -86,6 +86,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/businesses', businessRoutes)
 app.use('/api/stripe', stripeRoutes)
 app.use('/api/analytics', analyticsRoutes)
+app.use('/api/marketing', marketingRoutes)
 app.use('/api/jobs', jobDashboardRoutes)
 
 // Global error handler

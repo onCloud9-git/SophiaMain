@@ -4,6 +4,8 @@ import {
   MarketingCampaignJobData, 
   JobResult 
 } from '../types'
+import { googleAdsService } from '../../services/google-ads.service'
+import { BusinessModel } from '../../models/business.model'
 
 // Marketing job processor
 export class MarketingProcessor {
@@ -162,18 +164,43 @@ export class MarketingProcessor {
   }
   
   private static async createGoogleAdsCampaign(data: MarketingCampaignJobData): Promise<any> {
-    // TODO: Implement Google Ads API integration
     logger.info('Creating Google Ads campaign', { data })
     
-    // Placeholder - replace with actual Google Ads API calls
-    return {
-      campaignId: `gads_${Date.now()}`,
-      platform: 'google_ads',
-      status: 'active',
-      budget: data.budget,
-      targetAudience: data.targetAudience,
-      keywords: data.keywords || [],
-      estimatedReach: Math.floor(Math.random() * 10000) + 1000
+    try {
+      // Get business details
+      const business = await BusinessModel.getById(data.businessId!)
+      if (!business) {
+        throw new Error(`Business not found: ${data.businessId}`)
+      }
+
+      // Validate Google Ads configuration
+      if (!business.googleAdsCustomerId || !business.googleAdsRefreshToken) {
+        throw new Error('Business missing Google Ads credentials. Please connect Google Ads account first.')
+      }
+
+      // Create campaign using Google Ads API
+      const campaignResult = await googleAdsService.createCampaign(business, {
+        name: data.campaignName || `${business.name} - Search Campaign`,
+        budget: data.budget || 100,
+        targetCPA: business.targetCPA ? Number(business.targetCPA) : 50,
+        keywords: data.keywords || [`${business.name}`, `${business.industry} software`, `${business.industry} solution`],
+        businessId: data.businessId!
+      })
+
+      logger.info('Google Ads campaign created successfully', { 
+        campaignId: campaignResult.googleAdsId,
+        businessId: data.businessId 
+      })
+
+      return {
+        ...campaignResult,
+        targetAudience: data.targetAudience,
+        estimatedReach: Math.floor(Math.random() * 10000) + 1000 // TODO: Get real reach estimate from Google Ads
+      }
+
+    } catch (error) {
+      logger.error('Failed to create Google Ads campaign:', error)
+      throw new Error(`Google Ads campaign creation failed: ${error.message}`)
     }
   }
   

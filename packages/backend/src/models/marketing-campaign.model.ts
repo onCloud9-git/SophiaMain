@@ -304,4 +304,25 @@ export class MarketingCampaignModel {
 
     return prisma.marketingCampaign.findFirst({ where })
   }
+
+  /**
+   * Update campaign by Google Ads ID
+   */
+  static async updateByGoogleAdsId(googleAdsId: string, data: UpdateCampaignData): Promise<MarketingCampaign | null> {
+    const campaign = await prisma.marketingCampaign.findFirst({
+      where: { 
+        platform: 'GOOGLE_ADS',
+        googleAdsId: googleAdsId 
+      }
+    })
+
+    if (!campaign) {
+      return null
+    }
+
+    return prisma.marketingCampaign.update({
+      where: { id: campaign.id },
+      data
+    })
+  }
 }
