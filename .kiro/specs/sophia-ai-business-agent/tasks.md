@@ -13,7 +13,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
   - Setup Docker Compose for local PostgreSQL and Redis instances
   - _Requirements: All requirements foundation setup_
 
-- [ ] 2. Database Schema and Core Data Models
+- [x] 2. Database Schema and Core Data Models
   - Setup Prisma ORM with PostgreSQL connection
   - Create database schema for Business, User, MarketingCampaign, BusinessMetric entities
   - Implement Prisma models with proper relationships and constraints
@@ -21,7 +21,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
   - Write unit tests for database models and basic CRUD operations
   - _Requirements: 2.5, 6.3, 7.2, 10.1_
 
-- [ ] 3. Backend API Foundation and Authentication
+- [x] 3. Backend API Foundation and Authentication
   - Setup Express.js server with TypeScript and middleware stack
   - Implement JWT-based authentication system
   - Create user registration and login endpoints

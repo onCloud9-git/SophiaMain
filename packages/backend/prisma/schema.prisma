@@ -1,0 +1,191 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and ownership
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  businesses Business[]
+
+  @@map("users")
+}
+
+// Core business entity
+model Business {
+  id          String        @id @default(cuid())
+  name        String
+  description String
+  industry    String
+  status      BusinessStatus
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Business Configuration
+  websiteUrl     String?
+  repositoryUrl  String?
+  landingPageUrl String?
+
+  // Financial Data
+  monthlyPrice Decimal
+  currency     String  @default("USD")
+
+  // Analytics & Tracking
+  analyticsId     String?
+  stripeProductId String?
+  stripePriceId   String?
+
+  // Google Ads Configuration
+  googleAdsCustomerId String?
+  googleAdsRefreshToken String?
+  initialBudget      Decimal?
+  targetCPA          Decimal?
+
+  // Relationships
+  owner       User              @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  campaigns   MarketingCampaign[]
+  metrics     BusinessMetric[]
+  deployments Deployment[]
+
+  @@map("businesses")
+}
+
+// Marketing campaigns across different platforms
+model MarketingCampaign {
+  id          String           @id @default(cuid())
+  name        String
+  platform    CampaignPlatform
+  status      CampaignStatus
+  budget      Decimal
+  spent       Decimal          @default(0)
+  impressions Int              @default(0)
+  clicks      Int              @default(0)
+  conversions Int              @default(0)
+
+  // External Platform IDs
+  googleAdsId String?
+  facebookId  String?
+  linkedinId  String?
+
+  // Campaign Configuration
+  targetKeywords String[] // For search campaigns
+  audienceData   Json?    // Flexible audience targeting data
+
+  // Dates
+  startDate DateTime
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relationships
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+
+  @@map("marketing_campaigns")
+}
+
+// Daily metrics for business performance tracking
+model BusinessMetric {
+  id          String   @id @default(cuid())
+  date        DateTime
+  visitors    Int      @default(0)
+  conversions Int      @default(0)
+  revenue     Decimal  @default(0)
+
+  // Analytics Data
+  bounceRate      Float?
+  sessionDuration Float?
+  pageViews       Int    @default(0)
+
+  // Campaign Performance
+  totalImpressions Int     @default(0)
+  totalClicks      Int     @default(0)
+  totalSpent       Decimal @default(0)
+
+  // Subscription Metrics
+  newSubscriptions    Int @default(0)
+  cancelledSubscriptions Int @default(0)
+  activeSubscriptions Int @default(0)
+
+  // Relationships
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+
+  @@unique([businessId, date])
+  @@map("business_metrics")
+}
+
+// Deployment tracking for business websites/apps
+model Deployment {
+  id          String           @id @default(cuid())
+  version     String
+  status      DeploymentStatus
+  url         String?
+  environment String           @default("production")
+  
+  // Deployment metadata
+  commitHash  String?
+  buildLogs   String?
+  errorLogs   String?
+  
+  // Timestamps
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relationships
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+
+  @@map("deployments")
+}
+
+// Enums
+enum BusinessStatus {
+  PLANNING
+  DEVELOPING
+  DEPLOYING
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+enum CampaignPlatform {
+  GOOGLE_ADS
+  FACEBOOK_ADS
+  INSTAGRAM_ADS
+  LINKEDIN_ADS
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+enum DeploymentStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}

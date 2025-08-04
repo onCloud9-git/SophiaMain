@@ -1,0 +1,43 @@
+// Export all models for easy importing
+export { UserModel } from './user.model'
+export { BusinessModel } from './business.model'
+export { MarketingCampaignModel } from './marketing-campaign.model'
+export { BusinessMetricModel } from './business-metric.model'
+export { DeploymentModel } from './deployment.model'
+
+// Export types
+export type { CreateUserData, UpdateUserData } from './user.model'
+export type { 
+  CreateBusinessData, 
+  UpdateBusinessData, 
+  BusinessWithDetails 
+} from './business.model'
+export type { 
+  CreateCampaignData, 
+  UpdateCampaignData, 
+  CampaignWithBusiness 
+} from './marketing-campaign.model'
+export type { 
+  CreateMetricData, 
+  UpdateMetricData, 
+  MetricWithBusiness,
+  BusinessMetricSummary
+} from './business-metric.model'
+export type { 
+  CreateDeploymentData, 
+  UpdateDeploymentData, 
+  DeploymentWithBusiness 
+} from './deployment.model'
+
+// Re-export Prisma types for convenience
+export type {
+  User,
+  Business,
+  BusinessStatus,
+  MarketingCampaign,
+  CampaignPlatform,
+  CampaignStatus,
+  BusinessMetric,
+  Deployment,
+  DeploymentStatus
+} from '@prisma/client'
