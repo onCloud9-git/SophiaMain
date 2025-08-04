@@ -1,114 +1,142 @@
-import { useEffect, useRef } from 'react';
-import { webSocketService, WebSocketEvents } from '../services/websocket';
-import { useBusinessStore } from '../stores/businessStore';
+import { useEffect, useState, useRef } from 'react';
+import { useAuthStore } from '../stores/authStore';
 
-export const useWebSocket = (userId?: string) => {
-  const { updateBusiness, setMetrics, addBusiness } = useBusinessStore();
-  const isInitialized = useRef(false);
+interface UseWebSocketOptions {
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+  onError?: (error: Event) => void;
+  reconnectAttempts?: number;
+  reconnectInterval?: number;
+}
+
+interface UseWebSocketReturn {
+  data: any;
+  isConnected: boolean;
+  error: string | null;
+  send: (data: any) => void;
+  disconnect: () => void;
+}
+
+export const useWebSocket = (
+  channel: string,
+  options: UseWebSocketOptions = {}
+): UseWebSocketReturn => {
+  const [data, setData] = useState<any>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttempts = useRef(0);
+  
+  const { token } = useAuthStore();
+  
+  const {
+    onConnect,
+    onDisconnect,
+    onError,
+    reconnectAttempts: maxReconnectAttempts = 5,
+    reconnectInterval = 3000,
+  } = options;
+
+  const getWebSocketUrl = () => {
+    const wsProtocol = __DEV__ ? 'ws' : 'wss';
+    const wsHost = __DEV__ ? 'localhost:3001' : 'sophia-api.vercel.app';
+    return `${wsProtocol}://${wsHost}/ws?channel=${encodeURIComponent(channel)}&token=${encodeURIComponent(token || '')}`;
+  };
+
+  const connect = () => {
+    if (!token) {
+      setError('Authentication token is required');
+      return;
+    }
+
+    try {
+      const wsUrl = getWebSocketUrl();
+      wsRef.current = new WebSocket(wsUrl);
+
+      wsRef.current.onopen = () => {
+        setIsConnected(true);
+        setError(null);
+        reconnectAttempts.current = 0;
+        onConnect?.();
+      };
+
+      wsRef.current.onmessage = (event) => {
+        try {
+          const parsedData = JSON.parse(event.data);
+          setData(parsedData);
+        } catch (err) {
+          console.error('Failed to parse WebSocket message:', err);
+        }
+      };
+
+      wsRef.current.onclose = () => {
+        setIsConnected(false);
+        onDisconnect?.();
+        
+        // Attempt to reconnect if within retry limits
+        if (reconnectAttempts.current < maxReconnectAttempts) {
+          reconnectAttempts.current += 1;
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connect();
+          }, reconnectInterval);
+        } else {
+          setError('Connection lost and max reconnection attempts reached');
+        }
+      };
+
+      wsRef.current.onerror = (event) => {
+        setError('WebSocket connection error');
+        onError?.(event);
+      };
+    } catch (err) {
+      setError('Failed to establish WebSocket connection');
+    }
+  };
+
+  const disconnect = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    
+    setIsConnected(false);
+    setData(null);
+  };
+
+  const send = (dataToSend: any) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify(dataToSend));
+      } catch (err) {
+        console.error('Failed to send WebSocket message:', err);
+        setError('Failed to send message');
+      }
+    } else {
+      setError('WebSocket is not connected');
+    }
+  };
 
   useEffect(() => {
-    if (isInitialized.current) return;
-    isInitialized.current = true;
-
-    // Connect to WebSocket
-    webSocketService.connect(userId);
-
-    // Subscribe to user-specific updates
-    if (userId) {
-      webSocketService.subscribeToUserUpdates(userId);
+    if (token && channel) {
+      connect();
     }
 
-    // Set up event listeners
-    const handleBusinessCreated = (business: any) => {
-      console.log('New business created:', business);
-      addBusiness(business);
-    };
-
-    const handleBusinessUpdated = (update: any) => {
-      console.log('Business updated:', update);
-      updateBusiness(update.id, update);
-    };
-
-    const handleMetricsUpdated = (metrics: any) => {
-      console.log('Metrics updated:', metrics);
-      setMetrics(metrics.businessId, {
-        visitors: metrics.visitors,
-        conversions: metrics.conversions,
-        revenue: metrics.revenue,
-        bounceRate: metrics.bounceRate,
-        sessionDuration: metrics.sessionDuration,
-        pageViews: metrics.pageViews,
-      });
-    };
-
-    const handleDevelopmentProgress = (progress: any) => {
-      console.log('Development progress:', progress);
-      updateBusiness(progress.businessId, {
-        status: progress.status,
-      });
-      
-      // You could also show a toast notification here
-      // toast.info(progress.message);
-    };
-
-    const handleNotification = (notification: any) => {
-      console.log('New notification:', notification);
-      // Handle notifications (could show in-app notifications)
-      // notificationService.show(notification);
-    };
-
-    // Register event listeners
-    if (webSocketService.getConnectionStatus()) {
-      webSocketService.on('business-created', handleBusinessCreated);
-      webSocketService.on('business-updated', handleBusinessUpdated);
-      webSocketService.on('metrics-updated', handleMetricsUpdated);
-      webSocketService.on('development-progress', handleDevelopmentProgress);
-      webSocketService.on('notification', handleNotification);
-    } else {
-      // Use mock events for development
-      webSocketService.onMock('business-created', handleBusinessCreated);
-      webSocketService.onMock('business-updated', handleBusinessUpdated);
-      webSocketService.onMock('metrics-updated', handleMetricsUpdated);
-      webSocketService.onMock('development-progress', handleDevelopmentProgress);
-      webSocketService.onMock('notification', handleNotification);
-      
-      // Start simulation
-      webSocketService.simulateUpdates();
-    }
-
-    // Cleanup function
     return () => {
-      webSocketService.off('business-created', handleBusinessCreated);
-      webSocketService.off('business-updated', handleBusinessUpdated);
-      webSocketService.off('metrics-updated', handleMetricsUpdated);
-      webSocketService.off('development-progress', handleDevelopmentProgress);
-      webSocketService.off('notification', handleNotification);
-      
-      // Clean up mock listeners
-      webSocketService.offMock('business-created', handleBusinessCreated);
-      webSocketService.offMock('business-updated', handleBusinessUpdated);
-      webSocketService.offMock('metrics-updated', handleMetricsUpdated);
-      webSocketService.offMock('development-progress', handleDevelopmentProgress);
-      webSocketService.offMock('notification', handleNotification);
+      disconnect();
     };
-  }, [userId, addBusiness, updateBusiness, setMetrics]);
-
-  const subscribeToBusinessUpdates = (businessId: string) => {
-    webSocketService.subscribeToBusinessUpdates(businessId);
-  };
-
-  const unsubscribeFromBusinessUpdates = (businessId: string) => {
-    webSocketService.unsubscribeFromBusinessUpdates(businessId);
-  };
-
-  const isConnected = webSocketService.getConnectionStatus();
+  }, [token, channel]);
 
   return {
+    data,
     isConnected,
-    subscribeToBusinessUpdates,
-    unsubscribeFromBusinessUpdates,
-    emit: webSocketService.emit.bind(webSocketService),
+    error,
+    send,
+    disconnect,
   };
 };
-
-export default useWebSocket;

@@ -41,6 +41,7 @@ interface BusinessState {
   setError: (error: string | null) => void;
   
   // Computed
+  getBusiness: (id: string) => Business | undefined;
   getBusinessById: (id: string) => Business | undefined;
   getActiveBusinesses: () => Business[];
   getTotalRevenue: () => number;
@@ -107,6 +108,10 @@ export const useBusinessStore = create<BusinessState>((set, get) => ({
   },
 
   // Computed getters
+  getBusiness: (id: string) => {
+    return get().businesses.find((business) => business.id === id);
+  },
+
   getBusinessById: (id: string) => {
     return get().businesses.find((business) => business.id === id);
   },

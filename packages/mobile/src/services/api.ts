@@ -114,6 +114,11 @@ export const API = {
     update: (id: string, data: any) => apiClient.put(`/businesses/${id}`, data),
     delete: (id: string) => apiClient.delete(`/businesses/${id}`),
     getMetrics: (id: string) => apiClient.get(`/businesses/${id}/metrics`),
+    // AI Research endpoints
+    generateIdea: (preferences: any) => apiClient.post('/businesses/ai/generate-idea', preferences),
+    conductResearch: (industry: string) => apiClient.post('/businesses/ai/research', { industry }),
+    // Real-time status updates
+    getStatus: (id: string) => apiClient.get(`/businesses/${id}/status`),
   },
 
   // Analytics

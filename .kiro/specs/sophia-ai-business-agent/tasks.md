@@ -168,7 +168,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
 
 ## Mobile App Features and User Experience
 
-- [ ] 18. Business Creation Flow in Mobile App
+- [x] 18. Business Creation Flow in Mobile App
   - Create business creation wizard with step-by-step flow
   - Implement AI research mode toggle and business idea generation
   - Add form validation and user input handling
