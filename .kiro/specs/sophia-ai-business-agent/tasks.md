@@ -50,7 +50,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
   - Write unit tests for authentication components and flows
   - _Requirements: 7.1, 8.4_
 
-- [ ] 6. Business Dashboard and Navigation Structure
+- [x] 6. Business Dashboard and Navigation Structure
   - Create main dashboard with tab navigation using Expo Router
   - Implement business list view with Soft UI cards
   - Add empty states and loading skeletons
@@ -61,7 +61,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
 
 ## Backend Services and API Development
 
-- [ ] 7. Core Business Service and CRUD Operations
+- [x] 7. Core Business Service and CRUD Operations
   - Implement BusinessService class with CRUD operations
   - Create API endpoints for business management (GET, POST, PUT, DELETE)
   - Add input validation and error handling for all endpoints
@@ -70,7 +70,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
   - Setup API documentation using OpenAPI/Swagger
   - _Requirements: 2.1, 2.2, 2.3, 10.1, 10.2_
 
-- [ ] 8. Bull Queue Setup and Job Processing Infrastructure
+- [x] 8. Bull Queue Setup and Job Processing Infrastructure
   - Setup Bull Queue with Redis for background job processing
   - Create job types for business creation, marketing automation, and monitoring
   - Implement job queue dashboard for monitoring and debugging
@@ -79,7 +79,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
   - Write tests for job queue functionality and error scenarios
   - _Requirements: 2.4, 4.2, 4.3, 4.4, 5.3, 8.1, 8.3_
 
-- [ ] 9. Stripe Integration and Payment Processing
+- [x] 9. Stripe Integration and Payment Processing
   - Setup Stripe SDK and webhook endpoints
   - Implement subscription product creation and management
   - Create payment processing logic for monthly subscriptions

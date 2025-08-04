@@ -10,7 +10,8 @@ import { Server } from 'socket.io'
 import winston from 'winston'
 
 // Import routes
-import { authRoutes } from './routes'
+import { authRoutes, businessRoutes, stripeRoutes } from './routes'
+import { jobDashboardRoutes, JobManager } from './jobs'
 
 // Initialize Prisma
 export const prisma = new PrismaClient({
@@ -69,6 +70,9 @@ app.use(morgan('combined', {
     write: (message: string) => logger.info(message.trim())
   }
 }))
+// Stripe webhook endpoints need raw body - must be before JSON parsing
+app.use('/api/stripe/webhooks', express.raw({ type: 'application/json' }))
+
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
@@ -84,6 +88,9 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes)
+app.use('/api/businesses', businessRoutes)
+app.use('/api/stripe', stripeRoutes)
+app.use('/api/jobs', jobDashboardRoutes)
 
 // Global error handler
 app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -126,38 +133,54 @@ io.on('connection', (socket) => {
   })
 })
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, shutting down gracefully')
-  
-  server.close(() => {
-    logger.info('HTTP server closed')
-  })
-  
-  await prisma.$disconnect()
-  logger.info('Database connection closed')
-  
-  process.exit(0)
-})
+// Initialize job system
+const initializeJobSystem = async () => {
+  try {
+    await JobManager.initialize()
+    logger.info('✅ Job management system initialized')
+  } catch (error) {
+    logger.error('Failed to initialize job system:', error)
+    // Don't exit - continue without job system for now
+  }
+}
 
-process.on('SIGINT', async () => {
-  logger.info('SIGINT received, shutting down gracefully')
+// Graceful shutdown
+const gracefulShutdown = async (signal: string) => {
+  logger.info(`${signal} received, shutting down gracefully`)
   
+  // Close HTTP server
   server.close(() => {
     logger.info('HTTP server closed')
   })
   
+  // Shutdown job system
+  if (JobManager.isInitialized()) {
+    try {
+      await JobManager.shutdown()
+      logger.info('Job system shut down')
+    } catch (error) {
+      logger.error('Error shutting down job system:', error)
+    }
+  }
+  
+  // Close database connection
   await prisma.$disconnect()
   logger.info('Database connection closed')
   
   process.exit(0)
-})
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
 // Start server
 const PORT = process.env.PORT || 3001
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   logger.info(`🚀 Sophia AI Backend Server running on port ${PORT}`)
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`)
+  
+  // Initialize job system after server starts
+  await initializeJobSystem()
 })
 
 export { app, server }

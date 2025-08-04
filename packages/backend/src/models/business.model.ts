@@ -33,10 +33,23 @@ export interface UpdateBusinessData {
   analyticsId?: string
   stripeProductId?: string
   stripePriceId?: string
+  stripeSubscriptionId?: string
+  stripeCustomerId?: string
+  subscriptionStatus?: string
+  currentPeriodStart?: Date
+  currentPeriodEnd?: Date
   googleAdsCustomerId?: string
   googleAdsRefreshToken?: string
   initialBudget?: number
   targetCPA?: number
+}
+
+export interface SubscriptionStatusData {
+  subscriptionId: string
+  customerId?: string
+  status: string
+  currentPeriodStart?: Date
+  currentPeriodEnd?: Date
 }
 
 export interface BusinessWithDetails extends Business {
@@ -99,10 +112,21 @@ export class BusinessModel {
   /**
    * Find all businesses by owner
    */
-  static async findByOwnerId(ownerId: string): Promise<Business[]> {
+  static async findByOwnerId(ownerId: string, skip?: number, take?: number): Promise<Business[]> {
     return prisma.business.findMany({
       where: { ownerId },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take
+    })
+  }
+
+  /**
+   * Count businesses by owner
+   */
+  static async countByOwnerId(ownerId: string): Promise<number> {
+    return prisma.business.count({
+      where: { ownerId }
     })
   }
 
@@ -181,6 +205,22 @@ export class BusinessModel {
       data: {
         stripeProductId: data.productId,
         stripePriceId: data.priceId
+      }
+    })
+  }
+
+  /**
+   * Update subscription status
+   */
+  static async updateSubscriptionStatus(id: string, data: SubscriptionStatusData): Promise<Business> {
+    return prisma.business.update({
+      where: { id },
+      data: {
+        stripeSubscriptionId: data.subscriptionId,
+        stripeCustomerId: data.customerId,
+        subscriptionStatus: data.status,
+        currentPeriodStart: data.currentPeriodStart,
+        currentPeriodEnd: data.currentPeriodEnd
       }
     })
   }

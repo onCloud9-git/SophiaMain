@@ -61,7 +61,11 @@ export declare class BusinessModel {
     /**
      * Find all businesses by owner
      */
-    static findByOwnerId(ownerId: string): Promise<Business[]>;
+    static findByOwnerId(ownerId: string, skip?: number, take?: number): Promise<Business[]>;
+    /**
+     * Count businesses by owner
+     */
+    static countByOwnerId(ownerId: string): Promise<number>;
     /**
      * Find businesses by status
      */

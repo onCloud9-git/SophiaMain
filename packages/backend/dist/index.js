@@ -76,6 +76,7 @@ app.get('/health', (req, res) => {
 });
 // API routes
 app.use('/api/auth', routes_1.authRoutes);
+app.use('/api/businesses', routes_1.businessRoutes);
 // Global error handler
 app.use((error, req, res, next) => {
     exports.logger.error('Unhandled error:', {

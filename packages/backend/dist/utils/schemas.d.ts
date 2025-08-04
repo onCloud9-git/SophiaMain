@@ -121,15 +121,15 @@ export declare const campaignUpdateSchema: z.ZodObject<{
     targetKeywords: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     audienceData: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
 }, "strip", z.ZodTypeAny, {
-    name?: string | undefined;
     status?: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "FAILED" | undefined;
+    name?: string | undefined;
     budget?: number | undefined;
     endDate?: string | undefined;
     targetKeywords?: string[] | undefined;
     audienceData?: Record<string, any> | undefined;
 }, {
-    name?: string | undefined;
     status?: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "FAILED" | undefined;
+    name?: string | undefined;
     budget?: number | undefined;
     endDate?: string | undefined;
     targetKeywords?: string[] | undefined;
@@ -148,13 +148,13 @@ export declare const paginationQuerySchema: z.ZodObject<{
     sortBy: z.ZodOptional<z.ZodString>;
     sortOrder: z.ZodDefault<z.ZodEnum<["asc", "desc"]>>;
 }, "strip", z.ZodTypeAny, {
-    limit: number;
     page: number;
+    limit: number;
     sortOrder: "asc" | "desc";
     sortBy?: string | undefined;
 }, {
-    limit?: string | undefined;
     page?: string | undefined;
+    limit?: string | undefined;
     sortBy?: string | undefined;
     sortOrder?: "asc" | "desc" | undefined;
 }>;

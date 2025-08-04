@@ -47,8 +47,15 @@ model Business {
 
   // Analytics & Tracking
   analyticsId     String?
-  stripeProductId String?
-  stripePriceId   String?
+  
+  // Stripe Integration
+  stripeProductId      String?
+  stripePriceId        String?
+  stripeSubscriptionId String?
+  stripeCustomerId     String?
+  subscriptionStatus   String?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
 
   // Google Ads Configuration
   googleAdsCustomerId String?

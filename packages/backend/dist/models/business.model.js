@@ -53,10 +53,20 @@ class BusinessModel {
     /**
      * Find all businesses by owner
      */
-    static async findByOwnerId(ownerId) {
+    static async findByOwnerId(ownerId, skip, take) {
         return prisma_1.prisma.business.findMany({
             where: { ownerId },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take
+        });
+    }
+    /**
+     * Count businesses by owner
+     */
+    static async countByOwnerId(ownerId) {
+        return prisma_1.prisma.business.count({
+            where: { ownerId }
         });
     }
     /**
