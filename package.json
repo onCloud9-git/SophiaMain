@@ -1,0 +1,39 @@
+{
+  "name": "sophia-ai-business-agent",
+  "version": "1.0.0",
+  "description": "Autonomiczny system AI do tworzenia i zarządzania biznesami abonamentowymi",
+  "main": "index.js",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "pnpm run dev --parallel",
+    "build": "pnpm run build --parallel",
+    "test": "pnpm run test --parallel",
+    "lint": "pnpm run lint --parallel",
+    "clean": "pnpm run clean --parallel",
+    "mobile:dev": "pnpm --filter mobile dev",
+    "backend:dev": "pnpm --filter backend dev",
+    "admin:dev": "pnpm --filter admin dev",
+    "docker:up": "docker-compose -f docker/docker-compose.dev.yml up -d",
+    "docker:down": "docker-compose -f docker/docker-compose.dev.yml down"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.45.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^13.2.3",
+    "prettier": "^3.0.0",
+    "typescript": "^5.1.6"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
