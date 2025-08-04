@@ -161,22 +161,44 @@ export class BusinessProcessor {
       // Get current development progress
       const progress = await cursorAIService.getProjectProgress(businessId)
       
-      // Emit real-time update
+      // Get code quality metrics
+      const codeQuality = await cursorAIService.getCodeQualityMetrics(businessId)
+      
+      // Emit real-time update with enhanced data
       webSocketService.emitDevelopmentUpdate(businessId, {
         stage: progress.stage,
         progress: progress.progress,
-        hasTestableComponents: progress.hasTestableComponents
+        hasTestableComponents: progress.hasTestableComponents,
+        codeQuality: codeQuality,
+        lastUpdate: new Date()
       })
       
-      await job.progress(50)
+      await job.progress(30)
       
-      // Update business status based on progress
+      // Run automated tests if in testing stage
+      let testResults = null
+      if (progress.stage === 'testing' && progress.hasTestableComponents) {
+        try {
+          testResults = await cursorAIService.runAutomatedTests(businessId)
+          logger.info(`Automated tests completed for business ${businessId}`, testResults)
+        } catch (testError) {
+          logger.error(`Automated tests failed for business ${businessId}:`, testError)
+        }
+      }
+      
+      await job.progress(60)
+      
+      // Update business status based on progress and quality
       let newStatus = 'development'
-      if (progress.stage === 'complete') {
+      
+      if (progress.stage === 'complete' && codeQuality.eslintErrors < 10 && codeQuality.typescriptErrors === 0) {
         newStatus = 'deploying'
         
         // Trigger deployment
         const deploymentUrl = await cursorAIService.deployProject(businessId)
+        
+        // Setup deployment monitoring
+        await cursorAIService.setupDeploymentMonitoring(businessId, deploymentUrl)
         
         await BusinessService.updateBusiness(businessId, {
           websiteUrl: deploymentUrl,
@@ -189,7 +211,12 @@ export class BusinessProcessor {
           type: 'success',
           title: 'Deployment ukończony!',
           message: `Twój biznes "${business.name}" został wdrożony na ${deploymentUrl}`,
-          businessId
+          businessId,
+          data: {
+            deploymentUrl,
+            codeQuality,
+            testResults
+          }
         })
         
       } else if (progress.stage === 'testing' && progress.hasTestableComponents) {
@@ -199,6 +226,16 @@ export class BusinessProcessor {
           delay: 30000, // Check again in 30 seconds
           attempts: 1
         })
+      } else if (codeQuality.eslintErrors > 50 || codeQuality.typescriptErrors > 10) {
+        // Code quality issues detected - notify for manual review
+        const business = await BusinessService.getBusinessById(businessId)
+        webSocketService.emitNotification(business.ownerId, {
+          type: 'warning',
+          title: 'Problemy z jakością kodu',
+          message: `Wykryto ${codeQuality.eslintErrors} błędów ESLint i ${codeQuality.typescriptErrors} błędów TypeScript w projekcie "${business.name}".`,
+          businessId,
+          data: { codeQuality }
+        })
       }
       
       await job.progress(100)
@@ -206,7 +243,12 @@ export class BusinessProcessor {
       
       return {
         success: true,
-        data: { progress, businessId },
+        data: { 
+          progress, 
+          businessId, 
+          codeQuality,
+          testResults
+        },
         metadata: { processingTime }
       }
       
@@ -293,6 +335,215 @@ export class BusinessProcessor {
       return {
         success: false,
         error: error.message,
+        metadata: { processingTime }
+      }
+    }
+  }
+
+  // Process deployment health check job
+  static async processDeploymentHealthCheck(job: Job<{businessId: string, deploymentUrl: string}>): Promise<JobResult> {
+    const { businessId, deploymentUrl } = job.data
+    const startTime = Date.now()
+    
+    try {
+      logger.info(`Processing deployment health check job ${job.id} for business ${businessId}`)
+      
+      // Initialize Puppeteer MCP client
+      const PuppeteerMCPClient = require('../../lib/puppeteer-mcp-client').default
+      const puppeteerClient = new PuppeteerMCPClient()
+      
+      await job.progress(20)
+      
+      // Perform health checks
+      const healthChecks = {
+        accessible: false,
+        responseTime: 0,
+        statusCode: 0,
+        hasContent: false,
+        sslValid: false,
+        timestamp: new Date()
+      }
+      
+      try {
+        const checkStart = Date.now()
+        
+        // Check if site is accessible
+        await puppeteerClient.navigate(deploymentUrl)
+        healthChecks.accessible = true
+        healthChecks.responseTime = Date.now() - checkStart
+        
+        // Check for content
+        const title = await puppeteerClient.evaluate({ script: 'document.title' })
+        healthChecks.hasContent = title && title.result && title.result.length > 0
+        
+        // Check SSL (if HTTPS)
+        healthChecks.sslValid = deploymentUrl.startsWith('https://')
+        
+        await puppeteerClient.close()
+        
+      } catch (error) {
+        logger.error(`Health check failed for ${deploymentUrl}:`, error)
+        healthChecks.accessible = false
+      }
+      
+      await job.progress(80)
+      
+      // Update business with health status
+      const business = await BusinessService.getBusinessById(businessId)
+      
+      // Send notification if site is down
+      if (!healthChecks.accessible) {
+        webSocketService.emitNotification(business.ownerId, {
+          type: 'error',
+          title: 'Strona niedostępna!',
+          message: `Twoja strona ${business.name} jest niedostępna pod adresem ${deploymentUrl}`,
+          businessId,
+          data: { healthChecks }
+        })
+      } else if (healthChecks.responseTime > 5000) {
+        // Slow response warning
+        webSocketService.emitNotification(business.ownerId, {
+          type: 'warning',
+          title: 'Wolna strona',
+          message: `Twoja strona ${business.name} odpowiada wolno (${healthChecks.responseTime}ms)`,
+          businessId,
+          data: { healthChecks }
+        })
+      }
+      
+      await job.progress(100)
+      const processingTime = Date.now() - startTime
+      
+      return {
+        success: true,
+        data: { healthChecks, businessId, deploymentUrl },
+        metadata: { processingTime }
+      }
+      
+    } catch (error) {
+      const processingTime = Date.now() - startTime
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      logger.error(`Deployment health check job ${job.id} failed:`, error)
+      
+      return {
+        success: false,
+        error: errorMessage,
+        metadata: { processingTime }
+      }
+    }
+  }
+
+  // Process performance monitoring job
+  static async processPerformanceMonitoring(job: Job<{businessId: string, deploymentUrl: string}>): Promise<JobResult> {
+    const { businessId, deploymentUrl } = job.data
+    const startTime = Date.now()
+    
+    try {
+      logger.info(`Processing performance monitoring job ${job.id} for business ${businessId}`)
+      
+      // Initialize Puppeteer MCP client
+      const PuppeteerMCPClient = require('../../lib/puppeteer-mcp-client').default
+      const puppeteerClient = new PuppeteerMCPClient()
+      
+      await job.progress(20)
+      
+      // Perform performance analysis
+      const performanceMetrics = {
+        loadTime: 0,
+        domContentLoaded: 0,
+        firstContentfulPaint: 0,
+        largestContentfulPaint: 0,
+        cumulativeLayoutShift: 0,
+        totalBlockingTime: 0,
+        performanceScore: 0,
+        timestamp: new Date()
+      }
+      
+      try {
+        const performanceStart = Date.now()
+        
+        // Navigate and measure performance
+        await puppeteerClient.navigate(deploymentUrl)
+        
+        // Get performance metrics using browser APIs
+        const metrics = await puppeteerClient.evaluate({ 
+          script: `
+            // Collect performance metrics
+            const perfData = performance.getEntriesByType('navigation')[0];
+            const paintEntries = performance.getEntriesByType('paint');
+            
+            {
+              loadTime: perfData ? perfData.loadEventEnd - perfData.loadEventStart : 0,
+              domContentLoaded: perfData ? perfData.domContentLoadedEventEnd - perfData.domContentLoadedEventStart : 0,
+              firstContentfulPaint: paintEntries.find(entry => entry.name === 'first-contentful-paint')?.startTime || 0,
+              largestContentfulPaint: paintEntries.find(entry => entry.name === 'largest-contentful-paint')?.startTime || 0,
+              totalDuration: perfData ? perfData.loadEventEnd - perfData.navigationStart : 0
+            }
+          `
+        })
+        
+        // Calculate performance score based on metrics
+        let score = 100
+        if (performanceMetrics.loadTime > 3000) score -= 30
+        else if (performanceMetrics.loadTime > 1500) score -= 15
+        
+        if (performanceMetrics.firstContentfulPaint > 2000) score -= 20
+        else if (performanceMetrics.firstContentfulPaint > 1000) score -= 10
+        
+        performanceMetrics.performanceScore = Math.max(score, 0)
+        
+        // Take performance screenshot
+        await puppeteerClient.screenshot({
+          name: `${businessId}-performance-${Date.now()}`,
+          width: 1920,
+          height: 1080
+        })
+        
+        await puppeteerClient.close()
+        
+      } catch (error) {
+        logger.error(`Performance monitoring failed for ${deploymentUrl}:`, error)
+        performanceMetrics.performanceScore = 0
+      }
+      
+      await job.progress(80)
+      
+      // Send performance report
+      const business = await BusinessService.getBusinessById(businessId)
+      
+      if (performanceMetrics.performanceScore < 50) {
+        webSocketService.emitNotification(business.ownerId, {
+          type: 'warning',
+          title: 'Niska wydajność strony',
+          message: `Strona ${business.name} ma niską wydajność (${performanceMetrics.performanceScore}/100)`,
+          businessId,
+          data: { performanceMetrics }
+        })
+      }
+      
+      // Emit performance update for dashboard
+      webSocketService.emitAnalyticsUpdate(businessId, {
+        performanceMetrics,
+        timestamp: new Date()
+      })
+      
+      await job.progress(100)
+      const processingTime = Date.now() - startTime
+      
+      return {
+        success: true,
+        data: { performanceMetrics, businessId, deploymentUrl },
+        metadata: { processingTime }
+      }
+      
+    } catch (error) {
+      const processingTime = Date.now() - startTime
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      logger.error(`Performance monitoring job ${job.id} failed:`, error)
+      
+      return {
+        success: false,
+        error: errorMessage,
         metadata: { processingTime }
       }
     }

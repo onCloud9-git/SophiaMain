@@ -6,6 +6,8 @@ export enum JobType {
   BUSINESS_DEPLOYMENT = 'business:deployment',
   BUSINESS_MONITORING = 'business:monitoring',
   DEVELOPMENT_MONITORING = 'development:monitoring',
+  DEPLOYMENT_HEALTH_CHECK = 'deployment:health:check',
+  PERFORMANCE_MONITORING = 'performance:monitoring',
   
   // Marketing automation jobs
   MARKETING_CAMPAIGN_CREATE = 'marketing:campaign:create',

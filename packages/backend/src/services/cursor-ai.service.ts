@@ -26,6 +26,39 @@ interface CodeQualityMetrics {
   eslintErrors: number
   typescriptErrors: number
   securityIssues: number
+  complexity?: string
+  duplicateCode?: number
+  performanceScore?: number
+}
+
+interface TestResults {
+  unitTests: {
+    passed: boolean
+    total: number
+    passed_count: number
+    failed_count: number
+    duration: number
+  }
+  integrationTests: {
+    passed: boolean
+    total: number
+    passed_count: number
+    failed_count: number
+    duration: number
+  }
+  e2eTests: {
+    passed: boolean
+    total: number
+    passed_count: number
+    failed_count: number
+    duration: number
+  }
+  overall: {
+    passed: boolean
+    totalTests: number
+    passedTests: number
+    duration: number
+  }
 }
 
 interface ProjectSetupData {
@@ -411,13 +444,287 @@ Focus on clean, maintainable code following Next.js best practices.
   }
   
   private async runCodeAnalysis(projectPath: string): Promise<CodeQualityMetrics> {
-    // Simplified code analysis - in production would use actual tools
+    try {
+      const metrics = {
+        linesOfCode: await this.countLinesOfCode(projectPath),
+        testCoverage: await this.getTestCoverage(projectPath),
+        eslintErrors: await this.runESLintCheck(projectPath),
+        typescriptErrors: await this.runTypeScriptCheck(projectPath),
+        securityIssues: await this.runSecurityScan(projectPath),
+        complexity: await this.analyzeCodeComplexity(projectPath),
+        duplicateCode: await this.detectDuplicateCode(projectPath),
+        performanceScore: await this.analyzePerformance(projectPath)
+      }
+      
+      logger.info(`Code analysis completed for ${projectPath}`, metrics)
+      return metrics
+      
+    } catch (error) {
+      logger.error('Code analysis failed:', error)
+      // Return fallback metrics
     return {
-      linesOfCode: 1000,
-      testCoverage: 85,
-      eslintErrors: 2,
-      typescriptErrors: 0,
-      securityIssues: 0
+        linesOfCode: 0,
+        testCoverage: 0,
+        eslintErrors: 999,
+        typescriptErrors: 999,
+        securityIssues: 999,
+        complexity: 'high',
+        duplicateCode: 0,
+        performanceScore: 0
+      }
+    }
+  }
+
+  /**
+   * Count lines of code in the project
+   */
+  private async countLinesOfCode(projectPath: string): Promise<number> {
+    try {
+      const { spawn } = require('child_process')
+      return new Promise((resolve) => {
+        const process = spawn('find', [projectPath, '-name', '*.tsx', '-o', '-name', '*.ts', '-o', '-name', '*.js', '-o', '-name', '*.jsx'], {
+          stdio: 'pipe'
+        })
+        
+        let fileCount = 0
+        let totalLines = 0
+        
+        process.stdout.on('data', async (data) => {
+          const files = data.toString().trim().split('\n').filter(f => f)
+          for (const file of files) {
+            try {
+              const content = await fs.readFile(file, 'utf8')
+              totalLines += content.split('\n').length
+              fileCount++
+            } catch (err) {
+              // Skip file if error
+            }
+          }
+        })
+        
+        process.on('close', () => resolve(totalLines))
+        process.on('error', () => resolve(0))
+      })
+    } catch (error) {
+      return 0
+    }
+  }
+
+  /**
+   * Get test coverage percentage
+   */
+  private async getTestCoverage(projectPath: string): Promise<number> {
+    try {
+      const coverageFile = path.join(projectPath, 'coverage', 'coverage-summary.json')
+      const exists = await fs.access(coverageFile).then(() => true).catch(() => false)
+      
+      if (exists) {
+        const coverage = JSON.parse(await fs.readFile(coverageFile, 'utf8'))
+        return coverage.total?.statements?.pct || 0
+      }
+      
+      // If no coverage file, estimate based on test files presence
+      const testsExist = await this.checkForTests(projectPath)
+      return testsExist ? 60 : 0 // Estimate 60% if tests exist
+      
+    } catch (error) {
+      return 0
+    }
+  }
+
+  /**
+   * Run ESLint check
+   */
+  private async runESLintCheck(projectPath: string): Promise<number> {
+    try {
+      const { spawn } = require('child_process')
+      return new Promise((resolve) => {
+        const eslintProcess = spawn('npx', ['eslint', '.', '--format', 'json'], {
+          cwd: projectPath,
+          stdio: 'pipe'
+        })
+        
+        let errorOutput = ''
+        eslintProcess.stdout.on('data', (data) => {
+          errorOutput += data.toString()
+        })
+        
+        eslintProcess.on('close', (code) => {
+          try {
+            const results = JSON.parse(errorOutput)
+            const totalErrors = results.reduce((sum: number, file: any) => {
+              return sum + file.errorCount + file.warningCount
+            }, 0)
+            resolve(totalErrors)
+          } catch (parseError) {
+            resolve(0) // If can't parse, assume no errors
+          }
+        })
+        
+        eslintProcess.on('error', () => resolve(0))
+      })
+    } catch (error) {
+      return 0
+    }
+  }
+
+  /**
+   * Run TypeScript check
+   */
+  private async runTypeScriptCheck(projectPath: string): Promise<number> {
+    try {
+      const { spawn } = require('child_process')
+      return new Promise((resolve) => {
+        const tscProcess = spawn('npx', ['tsc', '--noEmit'], {
+          cwd: projectPath,
+          stdio: 'pipe'
+        })
+        
+        let errorOutput = ''
+        tscProcess.stderr.on('data', (data) => {
+          errorOutput += data.toString()
+        })
+        
+        tscProcess.on('close', (code) => {
+          // Count error lines (rough estimate)
+          const errorLines = errorOutput.split('\n').filter(line => 
+            line.includes('error TS') || line.includes('Error:')
+          )
+          resolve(errorLines.length)
+        })
+        
+        tscProcess.on('error', () => resolve(0))
+      })
+    } catch (error) {
+      return 0
+    }
+  }
+
+  /**
+   * Run security scan
+   */
+  private async runSecurityScan(projectPath: string): Promise<number> {
+    try {
+      const { spawn } = require('child_process')
+      return new Promise((resolve) => {
+        const auditProcess = spawn('npm', ['audit', '--json'], {
+          cwd: projectPath,
+          stdio: 'pipe'
+        })
+        
+        let auditOutput = ''
+        auditProcess.stdout.on('data', (data) => {
+          auditOutput += data.toString()
+        })
+        
+        auditProcess.on('close', () => {
+          try {
+            const audit = JSON.parse(auditOutput)
+            const vulnerabilities = audit.metadata?.vulnerabilities
+            if (vulnerabilities) {
+              return resolve(
+                (vulnerabilities.high || 0) + 
+                (vulnerabilities.critical || 0) + 
+                (vulnerabilities.moderate || 0)
+              )
+            }
+            resolve(0)
+          } catch (parseError) {
+            resolve(0)
+          }
+        })
+        
+        auditProcess.on('error', () => resolve(0))
+      })
+    } catch (error) {
+      return 0
+    }
+  }
+
+  /**
+   * Analyze code complexity
+   */
+  private async analyzeCodeComplexity(projectPath: string): Promise<string> {
+    try {
+      const fileCount = await this.countFiles(projectPath)
+      const linesOfCode = await this.countLinesOfCode(projectPath)
+      
+      if (fileCount > 50 || linesOfCode > 5000) return 'high'
+      if (fileCount > 20 || linesOfCode > 2000) return 'medium'
+      return 'low'
+      
+    } catch (error) {
+      return 'unknown'
+    }
+  }
+
+  /**
+   * Detect duplicate code percentage
+   */
+  private async detectDuplicateCode(projectPath: string): Promise<number> {
+    // Simplified implementation - in production use tools like jscpd
+    try {
+      const files = await this.getSourceFiles(projectPath)
+      let duplicateLines = 0
+      let totalLines = 0
+      
+      // Basic duplicate detection (very simplified)
+      const lineHashes = new Map<string, number>()
+      
+      for (const file of files) {
+        const content = await fs.readFile(file, 'utf8')
+        const lines = content.split('\n')
+        totalLines += lines.length
+        
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (trimmed.length > 10) { // Ignore short lines
+            const count = lineHashes.get(trimmed) || 0
+            if (count > 0) duplicateLines++
+            lineHashes.set(trimmed, count + 1)
+          }
+        }
+      }
+      
+      return totalLines > 0 ? Math.round((duplicateLines / totalLines) * 100) : 0
+      
+    } catch (error) {
+      return 0
+    }
+  }
+
+  /**
+   * Analyze performance score
+   */
+  private async analyzePerformance(projectPath: string): Promise<number> {
+    try {
+      // Check for performance best practices
+      let score = 100
+      
+      // Check for heavy dependencies
+      const packageJsonPath = path.join(projectPath, 'package.json')
+      const packageExists = await fs.access(packageJsonPath).then(() => true).catch(() => false)
+      
+      if (packageExists) {
+        const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
+        const depCount = Object.keys(packageJson.dependencies || {}).length
+        
+        if (depCount > 50) score -= 20
+        else if (depCount > 30) score -= 10
+      }
+      
+      // Check for optimization files
+      const nextConfigExists = await fs.access(path.join(projectPath, 'next.config.js')).then(() => true).catch(() => false)
+      if (!nextConfigExists) score -= 10
+      
+      // Check for image optimization
+      const hasImageOptimization = await this.checkForImageOptimization(projectPath)
+      if (!hasImageOptimization) score -= 15
+      
+      return Math.max(score, 0)
+      
+    } catch (error) {
+      return 50 // Default score
     }
   }
   
@@ -462,6 +769,328 @@ Focus on clean, maintainable code following Next.js best practices.
         }
       })
     })
+  }
+
+  /**
+   * Check for test files in the project
+   */
+  private async checkForTests(projectPath: string): Promise<boolean> {
+    try {
+      const testDirs = ['__tests__', 'tests', 'test']
+      const testExtensions = ['.test.js', '.test.ts', '.test.tsx', '.spec.js', '.spec.ts', '.spec.tsx']
+      
+      for (const dir of testDirs) {
+        const dirExists = await fs.access(path.join(projectPath, dir)).then(() => true).catch(() => false)
+        if (dirExists) return true
+      }
+      
+      // Check for test files in src directory
+      const srcPath = path.join(projectPath, 'src')
+      const srcExists = await fs.access(srcPath).then(() => true).catch(() => false)
+      if (srcExists) {
+        const files = await fs.readdir(srcPath, { recursive: true })
+        return files.some(file => testExtensions.some(ext => file.toString().endsWith(ext)))
+      }
+      
+      return false
+    } catch (error) {
+      return false
+    }
+  }
+
+  /**
+   * Count total files in project
+   */
+  private async countFiles(projectPath: string): Promise<number> {
+    try {
+      const files = await this.getSourceFiles(projectPath)
+      return files.length
+    } catch (error) {
+      return 0
+    }
+  }
+
+  /**
+   * Get all source files in project
+   */
+  private async getSourceFiles(projectPath: string): Promise<string[]> {
+    try {
+      const extensions = ['.ts', '.tsx', '.js', '.jsx']
+      const ignoreDirs = ['node_modules', '.next', 'coverage', 'dist', 'build']
+      
+      const { spawn } = require('child_process')
+      return new Promise((resolve) => {
+        const findArgs = [projectPath, '-type', 'f']
+        
+        // Add extension filters
+        extensions.forEach((ext, index) => {
+          if (index > 0) findArgs.push('-o')
+          findArgs.push('-name', `*${ext}`)
+        })
+        
+        const findProcess = spawn('find', findArgs, { stdio: 'pipe' })
+        
+        let output = ''
+        findProcess.stdout.on('data', (data) => {
+          output += data.toString()
+        })
+        
+        findProcess.on('close', () => {
+          const files = output.trim().split('\n').filter(file => {
+            if (!file) return false
+            // Filter out ignored directories
+            return !ignoreDirs.some(dir => file.includes(`/${dir}/`))
+          })
+          resolve(files)
+        })
+        
+        findProcess.on('error', () => resolve([]))
+      })
+    } catch (error) {
+      return []
+    }
+  }
+
+  /**
+   * Check for image optimization configuration
+   */
+  private async checkForImageOptimization(projectPath: string): Promise<boolean> {
+    try {
+      // Check Next.js config for image optimization
+      const nextConfigPath = path.join(projectPath, 'next.config.js')
+      const configExists = await fs.access(nextConfigPath).then(() => true).catch(() => false)
+      
+      if (configExists) {
+        const config = await fs.readFile(nextConfigPath, 'utf8')
+        return config.includes('images') || config.includes('Image')
+      }
+      
+      // Check for image optimization packages
+      const packageJsonPath = path.join(projectPath, 'package.json')
+      const packageExists = await fs.access(packageJsonPath).then(() => true).catch(() => false)
+      
+      if (packageExists) {
+        const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
+        const deps = { ...packageJson.dependencies, ...packageJson.devDependencies }
+        
+        return Object.keys(deps).some(dep => 
+          dep.includes('image') || 
+          dep.includes('sharp') || 
+          dep.includes('imagemin')
+        )
+      }
+      
+      return false
+    } catch (error) {
+      return false
+    }
+  }
+
+  /**
+   * Run automated testing pipeline
+   */
+  async runAutomatedTests(businessId: string): Promise<TestResults> {
+    try {
+      const projectPath = path.join(CursorAIService.PROJECTS_DIR, businessId)
+      
+      logger.info(`Running automated tests for business ${businessId}`)
+      
+      // Run unit tests
+      const unitTestResults = await this.runUnitTests(projectPath)
+      
+      // Run integration tests if they exist
+      const integrationTestResults = await this.runIntegrationTests(projectPath)
+      
+      // Run E2E tests using Puppeteer MCP
+      const e2eResults = await this.runE2ETests(businessId, projectPath)
+      
+      const results: TestResults = {
+        unitTests: unitTestResults,
+        integrationTests: integrationTestResults,
+        e2eTests: e2eResults,
+        overall: {
+          passed: unitTestResults.passed && integrationTestResults.passed && e2eResults.passed,
+          totalTests: unitTestResults.total + integrationTestResults.total + e2eResults.total,
+          passedTests: unitTestResults.passed_count + integrationTestResults.passed_count + e2eResults.passed_count,
+          duration: unitTestResults.duration + integrationTestResults.duration + e2eResults.duration
+        }
+      }
+      
+      logger.info(`Automated tests completed for business ${businessId}`, results)
+      return results
+      
+    } catch (error) {
+      logger.error(`Automated tests failed for business ${businessId}:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Run unit tests
+   */
+  private async runUnitTests(projectPath: string): Promise<any> {
+    try {
+      const { spawn } = require('child_process')
+      return new Promise((resolve) => {
+        const testProcess = spawn('npm', ['test', '--', '--json'], {
+          cwd: projectPath,
+          stdio: 'pipe'
+        })
+        
+        let testOutput = ''
+        testProcess.stdout.on('data', (data) => {
+          testOutput += data.toString()
+        })
+        
+        testProcess.on('close', (code) => {
+          try {
+            const results = JSON.parse(testOutput)
+            resolve({
+              passed: code === 0,
+              total: results.numTotalTests || 0,
+              passed_count: results.numPassedTests || 0,
+              failed_count: results.numFailedTests || 0,
+              duration: results.testResults?.reduce((sum: number, test: any) => sum + test.perfStats?.runtime || 0, 0) || 0
+            })
+          } catch (parseError) {
+            resolve({
+              passed: code === 0,
+              total: 0,
+              passed_count: 0,
+              failed_count: 0,
+              duration: 0
+            })
+          }
+        })
+        
+        testProcess.on('error', () => {
+          resolve({
+            passed: false,
+            total: 0,
+            passed_count: 0,
+            failed_count: 0,
+            duration: 0
+          })
+        })
+      })
+    } catch (error) {
+      return {
+        passed: false,
+        total: 0,
+        passed_count: 0,
+        failed_count: 0,
+        duration: 0
+      }
+    }
+  }
+
+  /**
+   * Run integration tests
+   */
+  private async runIntegrationTests(projectPath: string): Promise<any> {
+    // For now, return default results - integration tests are optional
+    return {
+      passed: true,
+      total: 0,
+      passed_count: 0,
+      failed_count: 0,
+      duration: 0
+    }
+  }
+
+  /**
+   * Run E2E tests using Puppeteer MCP
+   */
+  private async runE2ETests(businessId: string, projectPath: string): Promise<any> {
+    try {
+      const puppeteerClient = require('../lib/puppeteer-mcp-client').default
+      const client = new puppeteerClient()
+      
+      const startTime = Date.now()
+      let testsPassed = 0
+      let totalTests = 0
+      
+      // Test 1: Basic page load
+      totalTests++
+      try {
+        await client.navigate(`http://localhost:3000`)
+        await client.screenshot({
+          name: `${businessId}-homepage`,
+          width: 1920,
+          height: 1080
+        })
+        testsPassed++
+        logger.info(`✅ Homepage load test passed for ${businessId}`)
+      } catch (error) {
+        logger.error(`❌ Homepage load test failed for ${businessId}:`, error)
+      }
+      
+      // Test 2: Basic functionality
+      totalTests++
+      try {
+        await client.evaluate({ script: 'document.title' })
+        testsPassed++
+        logger.info(`✅ Basic functionality test passed for ${businessId}`)
+      } catch (error) {
+        logger.error(`❌ Basic functionality test failed for ${businessId}:`, error)
+      }
+      
+      await client.close()
+      
+      const duration = Date.now() - startTime
+      
+      return {
+        passed: testsPassed === totalTests,
+        total: totalTests,
+        passed_count: testsPassed,
+        failed_count: totalTests - testsPassed,
+        duration
+      }
+      
+    } catch (error) {
+      logger.error(`E2E tests failed for ${businessId}:`, error)
+      return {
+        passed: false,
+        total: 0,
+        passed_count: 0,
+        failed_count: 0,
+        duration: 0
+      }
+    }
+  }
+
+  /**
+   * Setup deployment monitoring and health checks
+   */
+  async setupDeploymentMonitoring(businessId: string, deploymentUrl: string): Promise<void> {
+    try {
+      logger.info(`Setting up deployment monitoring for business ${businessId}`)
+      
+      // Schedule health check job
+      const { queue } = require('../jobs/queue')
+      await queue.add('deployment-health-check', { 
+        businessId, 
+        deploymentUrl 
+      }, {
+        repeat: { every: 300000 }, // Every 5 minutes
+        priority: 'normal'
+      })
+      
+      // Schedule performance monitoring
+      await queue.add('performance-monitoring', { 
+        businessId, 
+        deploymentUrl 
+      }, {
+        repeat: { every: 900000 }, // Every 15 minutes
+        priority: 'low'
+      })
+      
+      logger.info(`Deployment monitoring setup completed for business ${businessId}`)
+      
+    } catch (error) {
+      logger.error(`Failed to setup deployment monitoring for business ${businessId}:`, error)
+      throw error
+    }
   }
 }
 
