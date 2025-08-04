@@ -2,11 +2,21 @@ import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 
-// You can replace these with actual icons from expo-vector-icons or custom icons
-const HomeIcon = () => null; // TODO: Add proper icons
-const BusinessIcon = () => null;
-const AnalyticsIcon = () => null;
-const ProfileIcon = () => null;
+import { Text } from 'react-native';
+
+// Simple text-based icons for now
+const HomeIcon = ({ color }: { color: string }) => (
+  <Text style={{ color, fontSize: 20, fontWeight: 'bold' }}>⌂</Text>
+);
+const BusinessIcon = ({ color }: { color: string }) => (
+  <Text style={{ color, fontSize: 20, fontWeight: 'bold' }}>◆</Text>
+);
+const AnalyticsIcon = ({ color }: { color: string }) => (
+  <Text style={{ color, fontSize: 20, fontWeight: 'bold' }}>📊</Text>
+);
+const ProfileIcon = ({ color }: { color: string }) => (
+  <Text style={{ color, fontSize: 20, fontWeight: 'bold' }}>👤</Text>
+);
 
 export default function TabLayout() {
   const theme = useTheme();
@@ -36,28 +46,28 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => <HomeIcon />,
+          tabBarIcon: ({ color, size }) => <HomeIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="businesses"
         options={{
           title: 'Businesses',
-          tabBarIcon: ({ color, size }) => <BusinessIcon />,
+          tabBarIcon: ({ color, size }) => <BusinessIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="analytics"
         options={{
           title: 'Analytics',
-          tabBarIcon: ({ color, size }) => <AnalyticsIcon />,
+          tabBarIcon: ({ color, size }) => <AnalyticsIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => <ProfileIcon />,
+          tabBarIcon: ({ color, size }) => <ProfileIcon color={color} />,
         }}
       />
     </Tabs>
