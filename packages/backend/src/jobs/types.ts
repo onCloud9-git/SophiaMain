@@ -5,6 +5,7 @@ export enum JobType {
   BUSINESS_CREATION = 'business:creation',
   BUSINESS_DEPLOYMENT = 'business:deployment',
   BUSINESS_MONITORING = 'business:monitoring',
+  DEVELOPMENT_MONITORING = 'development:monitoring',
   
   // Marketing automation jobs
   MARKETING_CAMPAIGN_CREATE = 'marketing:campaign:create',
@@ -67,6 +68,12 @@ export interface BusinessCreationJobData extends BaseJobData {
   userPrompt?: string
   targetMarket?: string
   businessModel?: string
+}
+
+// Development monitoring job data
+export interface DevelopmentMonitoringJobData extends BaseJobData {
+  businessId: string
+  monitoringType?: 'progress' | 'testing' | 'deployment'
 }
 
 // Marketing campaign job data

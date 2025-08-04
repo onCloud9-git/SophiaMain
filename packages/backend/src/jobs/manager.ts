@@ -73,6 +73,10 @@ export class JobManager {
       queues['business-queue'].process(JobType.BUSINESS_MONITORING, 2, async (job: Job) => {
         return await BusinessProcessor.processBusinessMonitoring(job)
       })
+      
+      queues['business-queue'].process(JobType.DEVELOPMENT_MONITORING, 3, async (job: Job<{businessId: string}>) => {
+        return await BusinessProcessor.processDevelopmentMonitoring(job)
+      })
     }
     
     // Marketing queue processors

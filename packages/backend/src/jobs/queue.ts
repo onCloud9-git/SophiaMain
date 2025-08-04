@@ -192,7 +192,7 @@ export const addJob = async <T extends BaseJobData>(
 
 // Get queue name by job type
 const getQueueNameByJobType = (jobType: JobType): string => {
-  if (jobType.startsWith('business:')) return 'business-queue'
+  if (jobType.startsWith('business:') || jobType.startsWith('development:')) return 'business-queue'
   if (jobType.startsWith('marketing:')) return 'marketing-queue'
   if (jobType.startsWith('analytics:')) return 'analytics-queue'
   if (jobType.startsWith('payment:')) return 'payment-queue'

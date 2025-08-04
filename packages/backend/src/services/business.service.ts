@@ -323,4 +323,9 @@ export class BusinessService {
       throw new Error('Failed to retrieve businesses for monitoring')
     }
   }
+
+
 }
+
+// Export singleton instance for compatibility
+export const businessService = new class extends BusinessService {}()

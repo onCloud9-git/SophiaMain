@@ -6,12 +6,12 @@ import compression from 'compression'
 import rateLimit from 'express-rate-limit'
 import { PrismaClient } from '@prisma/client'
 import { createServer } from 'http'
-import { Server } from 'socket.io'
 import winston from 'winston'
 
 // Import routes
 import { authRoutes, businessRoutes, stripeRoutes } from './routes'
 import { jobDashboardRoutes, JobManager } from './jobs'
+import { webSocketService } from './services'
 
 // Initialize Prisma
 export const prisma = new PrismaClient({
@@ -40,13 +40,8 @@ export const logger = winston.createLogger({
 const app: express.Application = express()
 const server = createServer(app)
 
-// Initialize Socket.IO
-export const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URLS?.split(',') || ['http://localhost:3000', 'http://localhost:19006'],
-    methods: ['GET', 'POST']
-  }
-})
+// Initialize WebSocket service
+webSocketService.initialize(server)
 
 // Rate limiting
 const limiter = rateLimit({
@@ -118,20 +113,7 @@ app.use((req, res) => {
   })
 })
 
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  logger.info(`Client connected: ${socket.id}`)
-  
-  socket.on('disconnect', () => {
-    logger.info(`Client disconnected: ${socket.id}`)
-  })
-  
-  // Join user room for personalized notifications
-  socket.on('join_user_room', (userId: string) => {
-    socket.join(`user:${userId}`)
-    logger.info(`User ${userId} joined their room`)
-  })
-})
+// WebSocket service is initialized above and handles all connection logic
 
 // Initialize job system
 const initializeJobSystem = async () => {

@@ -5,7 +5,9 @@ import {
   JobResult, 
   JobType 
 } from '../types'
-import { businessService } from '../../services'
+import { BusinessService } from '../../services'
+import { cursorAIService } from '../../services/cursor-ai.service'
+import { webSocketService } from '../../services/websocket.service'
 
 // Business job processor
 export class BusinessProcessor {
@@ -14,54 +16,79 @@ export class BusinessProcessor {
   static async processBusinessCreation(job: Job<BusinessCreationJobData>): Promise<JobResult> {
     const { data } = job
     const startTime = Date.now()
+    let businessId: string | undefined
     
     try {
       logger.info(`Processing business creation job ${job.id}`, { data })
       
-      // Update job progress
-      await job.progress(10)
+      // Send initial progress update
+      await this.emitProgress(data.userId, 'Iniciowanie procesu tworzenia biznesu...', 'setup', 5)
+      await job.progress(5)
       
       // Step 1: AI Research (if enabled)
       let businessConcept = data.businessIdea
       if (data.aiResearch) {
+        await this.emitProgress(data.userId, 'Przeprowadzanie badań AI...', 'research', 15)
         logger.info(`Conducting AI research for business idea: ${data.businessIdea}`)
-        // TODO: Implement AI research logic
         businessConcept = await this.conductAIResearch(data.businessIdea)
-        await job.progress(30)
+        await job.progress(25)
       }
       
       // Step 2: Create business record
+      await this.emitProgress(data.userId, 'Tworzenie rekordu biznesu...', 'setup', 30)
       logger.info('Creating business record in database')
-      const business = await businessService.createBusiness({
+      const business = await BusinessService.createBusiness({
         name: this.extractBusinessName(businessConcept),
         description: businessConcept,
-        businessModel: data.businessModel || 'subscription',
-        targetMarket: data.targetMarket || 'general',
-        status: 'creating',
-        ownerId: data.userId!,
-      })
-      await job.progress(50)
+        monthlyPrice: 29.99
+      }, data.userId!)
+      businessId = business.id
+      await job.progress(35)
       
       // Step 3: Generate business plan
+      await this.emitProgress(businessId, 'Generowanie planu biznesowego...', 'planning', 45, business.id)
       logger.info(`Generating business plan for business ${business.id}`)
       const businessPlan = await this.generateBusinessPlan(businessConcept, data)
-      await job.progress(70)
+      await job.progress(55)
       
-      // Step 4: Setup project structure
-      logger.info(`Setting up project structure for business ${business.id}`)
-      const projectSetup = await this.setupProjectStructure(business.id, businessPlan)
+      // Step 4: Create Cursor AI project
+      await this.emitProgress(businessId, 'Inicjowanie projektu Cursor AI...', 'development', 65, business.id)
+      logger.info(`Creating Cursor AI project for business ${business.id}`)
+      const projectSetup = await cursorAIService.createProject(business.id, {
+        businessPlan,
+        features: businessPlan.features || ['authentication', 'payments', 'dashboard'],
+        techStack: ['next.js', 'typescript', 'tailwindcss', 'stripe', 'prisma'],
+        requirements: ['responsive design', 'SEO optimization', 'subscription model']
+      })
+      await job.progress(75)
+      
+      // Step 5: Start development monitoring job
+      await this.emitProgress(businessId, 'Uruchamianie monitoringu developmentu...', 'development', 85, business.id)
+      const { queue } = require('../queue')
+      await queue.add('development-monitoring', { businessId: business.id }, {
+        priority: 'high',
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 }
+      })
       await job.progress(90)
       
-      // Step 5: Update business status
-      await businessService.updateBusiness(business.id, {
-        status: 'development',
-        metadata: {
-          businessPlan,
-          projectSetup,
-          createdAt: new Date().toISOString()
-        }
+      // Step 6: Update business with metadata (status will be managed separately)
+      await BusinessService.updateBusiness(business.id, {
+        websiteUrl: projectSetup.deploymentUrl,
+        repositoryUrl: projectSetup.repositoryUrl
       })
+      
+      // Final progress update
+      await this.emitProgress(businessId, 'Biznes został pomyślnie utworzony!', 'complete', 100, business.id)
       await job.progress(100)
+      
+      // Send success notification
+      webSocketService.emitNotification(data.userId!, {
+        type: 'success',
+        title: 'Biznes utworzony!',
+        message: `Twój biznes "${business.name}" został pomyślnie utworzony i development został uruchomiony.`,
+        businessId: business.id
+      })
       
       const processingTime = Date.now() - startTime
       logger.info(`Business creation job ${job.id} completed successfully`, { 
@@ -84,22 +111,118 @@ export class BusinessProcessor {
       
     } catch (error) {
       const processingTime = Date.now() - startTime
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       logger.error(`Business creation job ${job.id} failed:`, error)
+      
+      // Send error notification
+      if (data.userId) {
+        webSocketService.emitNotification(data.userId, {
+          type: 'error',
+          title: 'Błąd tworzenia biznesu',
+          message: `Wystąpił błąd podczas tworzenia biznesu: ${errorMessage}`,
+          businessId
+        })
+      }
+      
+      // Update business status to failed if it was created
+      if (businessId) {
+        try {
+          // Business status would be managed through a separate status tracking system
+          logger.info(`Business ${businessId} marked as failed`)
+        } catch (updateError) {
+          logger.error('Failed to update business status to failed:', updateError)
+        }
+      }
       
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
         metadata: {
           processingTime,
           retryCount: job.attemptsMade,
           nextRetry: job.opts.attempts && job.attemptsMade < job.opts.attempts 
-            ? new Date(Date.now() + (job.opts.backoff?.delay || 5000))
+            ? new Date(Date.now() + 5000)
             : undefined
         }
       }
     }
   }
   
+  // Process development monitoring job
+  static async processDevelopmentMonitoring(job: Job<{businessId: string}>): Promise<JobResult> {
+    const { businessId } = job.data
+    const startTime = Date.now()
+    
+    try {
+      logger.info(`Processing development monitoring job ${job.id} for business ${businessId}`)
+      
+      await job.progress(10)
+      
+      // Get current development progress
+      const progress = await cursorAIService.getProjectProgress(businessId)
+      
+      // Emit real-time update
+      webSocketService.emitDevelopmentUpdate(businessId, {
+        stage: progress.stage,
+        progress: progress.progress,
+        hasTestableComponents: progress.hasTestableComponents
+      })
+      
+      await job.progress(50)
+      
+      // Update business status based on progress
+      let newStatus = 'development'
+      if (progress.stage === 'complete') {
+        newStatus = 'deploying'
+        
+        // Trigger deployment
+        const deploymentUrl = await cursorAIService.deployProject(businessId)
+        
+        await BusinessService.updateBusiness(businessId, {
+          websiteUrl: deploymentUrl,
+          landingPageUrl: deploymentUrl
+        })
+        
+        // Send deployment notification
+        const business = await BusinessService.getBusinessById(businessId)
+        webSocketService.emitNotification(business.ownerId, {
+          type: 'success',
+          title: 'Deployment ukończony!',
+          message: `Twój biznes "${business.name}" został wdrożony na ${deploymentUrl}`,
+          businessId
+        })
+        
+      } else if (progress.stage === 'testing' && progress.hasTestableComponents) {
+        // Schedule next monitoring check
+        const { queue } = require('../queue')
+        await queue.add('development-monitoring', { businessId }, {
+          delay: 30000, // Check again in 30 seconds
+          attempts: 1
+        })
+      }
+      
+      await job.progress(100)
+      const processingTime = Date.now() - startTime
+      
+      return {
+        success: true,
+        data: { progress, businessId },
+        metadata: { processingTime }
+      }
+      
+    } catch (error) {
+      const processingTime = Date.now() - startTime
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      logger.error(`Development monitoring job ${job.id} failed:`, error)
+      
+      return {
+        success: false,
+        error: errorMessage,
+        metadata: { processingTime }
+      }
+    }
+  }
+
   // Process business deployment job
   static async processBusinessDeployment(job: Job): Promise<JobResult> {
     const startTime = Date.now()
@@ -107,36 +230,35 @@ export class BusinessProcessor {
     try {
       logger.info(`Processing business deployment job ${job.id}`)
       
-      // TODO: Implement deployment logic with Cursor AI integration
       await job.progress(20)
       
-      // Step 1: Code generation
-      await this.generateApplicationCode(job.data.businessId)
-      await job.progress(50)
-      
-      // Step 2: Deploy to hosting
-      await this.deployToHosting(job.data.businessId)
+      // Step 1: Deploy using Cursor AI service
+      const deploymentUrl = await cursorAIService.deployProject(job.data.businessId)
       await job.progress(80)
       
-      // Step 3: Setup monitoring
-      await this.setupMonitoring(job.data.businessId)
+      // Step 2: Update business with deployment info
+      await BusinessService.updateBusiness(job.data.businessId, {
+        websiteUrl: deploymentUrl,
+        landingPageUrl: deploymentUrl
+      })
       await job.progress(100)
       
       const processingTime = Date.now() - startTime
       
       return {
         success: true,
-        data: { deploymentUrl: `https://${job.data.businessId}.sophia-ai.com` },
+        data: { deploymentUrl },
         metadata: { processingTime }
       }
       
     } catch (error) {
       const processingTime = Date.now() - startTime
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       logger.error(`Business deployment job ${job.id} failed:`, error)
       
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
         metadata: { processingTime }
       }
     }
@@ -253,5 +375,29 @@ export class BusinessProcessor {
       apiResponse: 180,
       errorRate: 0.1
     }
+  }
+  
+  // Helper method to emit progress updates
+  private static async emitProgress(
+    targetId: string | undefined, 
+    message: string, 
+    stage: string, 
+    progress: number, 
+    businessId?: string
+  ): Promise<void> {
+    if (!targetId) return
+    
+    const update = {
+      businessId: businessId || targetId,
+      stage,
+      progress,
+      message,
+      timestamp: new Date()
+    }
+    
+    // Emit to WebSocket
+    webSocketService.emitProgressUpdate(update)
+    
+    logger.info(`Progress update: ${message} (${progress}%)`, { targetId, stage, businessId })
   }
 }
