@@ -45,8 +45,11 @@ model Business {
   monthlyPrice Decimal
   currency     String  @default("USD")
 
-  // Analytics & Tracking
-  analyticsId     String?
+  // Analytics & Tracking (Google Analytics 4)
+  analyticsId              String? // Legacy field for compatibility
+  analyticsPropertyId      String? // GA4 Property ID
+  analyticsMeasurementId   String? // GA4 Measurement ID (G-XXXXXXXX)
+  analyticsStreamId        String? // GA4 Data Stream ID
   
   // Stripe Integration
   stripeProductId      String?
@@ -69,6 +72,7 @@ model Business {
   campaigns   MarketingCampaign[]
   metrics     BusinessMetric[]
   deployments Deployment[]
+  conversions ConversionEvent[]
 
   @@map("businesses")
 }
@@ -162,6 +166,25 @@ model Deployment {
   businessId String
 
   @@map("deployments")
+}
+
+// Conversion tracking for custom events
+model ConversionEvent {
+  id         String   @id @default(cuid())
+  eventName  String
+  value      Decimal?
+  userId     String?
+  sessionId  String?
+  timestamp  DateTime @default(now())
+  
+  // Additional metadata
+  metadata   Json?
+  
+  // Relationships
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  
+  @@map("conversion_events")
 }
 
 // Enums

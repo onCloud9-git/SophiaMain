@@ -1,5 +1,8 @@
 import { Job } from 'bull'
 import { logger } from '../../index'
+import { analyticsService } from '../../services'
+import { BusinessService } from '../../services/business.service'
+import { prisma } from '../../lib/prisma'
 import { 
   AnalyticsJobData, 
   JobResult 
@@ -142,18 +145,73 @@ export class AnalyticsProcessor {
   }
   
   private static async collectGoogleAnalyticsData(data: AnalyticsJobData): Promise<any> {
-    // TODO: Implement Google Analytics API integration
-    logger.info('Collecting Google Analytics data', { data })
-    
-    // Placeholder - replace with actual Google Analytics API calls
-    return {
-      sessions: Math.floor(Math.random() * 5000) + 1000,
-      pageviews: Math.floor(Math.random() * 15000) + 3000,
-      users: Math.floor(Math.random() * 3000) + 800,
-      bounceRate: (Math.random() * 40 + 30).toFixed(2),
-      avgSessionDuration: Math.floor(Math.random() * 300) + 120,
-      conversions: Math.floor(Math.random() * 100) + 10,
-      conversionRate: (Math.random() * 5 + 1).toFixed(2)
+    try {
+      logger.info('Collecting Google Analytics data', { 
+        businessId: data.businessId,
+        dateRange: data.dateRange 
+      })
+      
+      if (!data.businessId) {
+        throw new Error('Business ID is required for Google Analytics data collection')
+      }
+
+      // Get business to get Analytics property ID
+      const business = await BusinessService.getById(data.businessId)
+      if (!business) {
+        throw new Error(`Business not found: ${data.businessId}`)
+      }
+
+      if (!business.analyticsPropertyId) {
+        throw new Error(`Google Analytics not configured for business: ${data.businessId}`)
+      }
+
+      // Get analytics metrics using the real service
+      const dateRange = {
+        start: data.dateRange.from,
+        end: data.dateRange.to
+      }
+
+      const metrics = await analyticsService.getMetrics(business.analyticsPropertyId, dateRange)
+      
+      // Aggregate data if multiple days
+      const aggregated = metrics.reduce((acc, metric) => ({
+        activeUsers: acc.activeUsers + metric.activeUsers,
+        conversions: acc.conversions + metric.conversions,
+        totalRevenue: acc.totalRevenue + metric.totalRevenue,
+        pageViews: acc.pageViews + metric.pageViews,
+        bounceRate: (acc.bounceRate + metric.bounceRate) / 2, // Average
+        sessionDuration: (acc.sessionDuration + metric.sessionDuration) / 2 // Average
+      }), {
+        activeUsers: 0,
+        conversions: 0,
+        totalRevenue: 0,
+        pageViews: 0,
+        bounceRate: 0,
+        sessionDuration: 0
+      })
+
+      // Calculate additional metrics
+      const conversionRate = aggregated.activeUsers > 0 
+        ? ((aggregated.conversions / aggregated.activeUsers) * 100).toFixed(2)
+        : '0'
+
+      return {
+        activeUsers: aggregated.activeUsers,
+        pageviews: aggregated.pageViews,
+        users: aggregated.activeUsers, // Alias for compatibility
+        bounceRate: aggregated.bounceRate.toFixed(2),
+        avgSessionDuration: aggregated.sessionDuration,
+        conversions: aggregated.conversions,
+        conversionRate,
+        revenue: aggregated.totalRevenue,
+        propertyId: business.analyticsPropertyId,
+        dataSource: 'google_analytics',
+        dateRange: dateRange
+      }
+
+    } catch (error) {
+      logger.error('Error collecting Google Analytics data:', error)
+      throw error
     }
   }
   
@@ -212,10 +270,55 @@ export class AnalyticsProcessor {
   }
   
   private static async storeAnalyticsResults(businessId: string, data: any): Promise<void> {
-    // TODO: Store analytics results in database
-    logger.info(`Storing analytics results for business ${businessId}`)
-    
-    // Placeholder - implement actual database storage
+    try {
+      logger.info(`Storing analytics results for business ${businessId}`)
+      
+      // Get today's date for the metric entry
+      const today = new Date()
+      today.setHours(0, 0, 0, 0) // Set to beginning of day
+
+      // Prepare metric data
+      const metricData = {
+        businessId,
+        date: today,
+        visitors: data.activeUsers || data.users || 0,
+        conversions: data.conversions || 0,
+        revenue: data.revenue || data.totalRevenue || 0,
+        bounceRate: parseFloat(data.bounceRate) || 0,
+        sessionDuration: data.avgSessionDuration || data.sessionDuration || 0,
+        pageViews: data.pageviews || data.pageViews || 0
+      }
+
+      // Upsert (update or insert) the metric for today
+      await prisma.businessMetric.upsert({
+        where: {
+          businessId_date: {
+            businessId,
+            date: today
+          }
+        },
+        update: {
+          visitors: metricData.visitors,
+          conversions: metricData.conversions,
+          revenue: metricData.revenue,
+          bounceRate: metricData.bounceRate,
+          sessionDuration: metricData.sessionDuration,
+          pageViews: metricData.pageViews
+        },
+        create: metricData
+      })
+
+      logger.info(`Analytics results stored successfully for business ${businessId}`, {
+        date: today.toISOString().split('T')[0],
+        visitors: metricData.visitors,
+        conversions: metricData.conversions,
+        revenue: metricData.revenue
+      })
+
+    } catch (error) {
+      logger.error(`Error storing analytics results for business ${businessId}:`, error)
+      throw error
+    }
   }
   
   private static async processRawAnalytics(data: AnalyticsJobData): Promise<any> {

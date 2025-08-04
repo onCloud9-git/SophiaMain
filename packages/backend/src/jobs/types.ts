@@ -95,8 +95,8 @@ export interface MarketingCampaignJobData extends BaseJobData {
 export interface AnalyticsJobData extends BaseJobData {
   dataSource: 'google_analytics' | 'stripe' | 'custom'
   dateRange: {
-    from: Date
-    to: Date
+    from: string // ISO date string YYYY-MM-DD
+    to: string   // ISO date string YYYY-MM-DD
   }
   metrics: string[]
   reportType?: 'summary' | 'detailed' | 'trend'

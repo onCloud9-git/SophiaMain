@@ -324,6 +324,85 @@ export class BusinessService {
     }
   }
 
+  /**
+   * Update Analytics integration data
+   */
+  static async updateAnalyticsInfo(
+    id: string,
+    analyticsData: {
+      analyticsPropertyId: string;
+      analyticsMeasurementId: string;
+      analyticsStreamId?: string;
+    },
+    ownerId?: string
+  ): Promise<Business> {
+    try {
+      // Check if business exists and user has access
+      const existingBusiness = await this.getBusinessById(id, ownerId)
+      if (!existingBusiness) {
+        throw new Error('Business not found')
+      }
+
+      const business = await BusinessModel.updateAnalyticsData(id, analyticsData)
+      
+      logger.info(`Analytics data updated for business: ${id}`, {
+        businessId: id,
+        propertyId: analyticsData.analyticsPropertyId,
+        measurementId: analyticsData.analyticsMeasurementId
+      })
+
+      return business
+    } catch (error) {
+      logger.error(`Failed to update Analytics data for business ${id}:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Log conversion event for business
+   */
+  static async logConversion(
+    businessId: string,
+    eventName: string,
+    value?: number,
+    metadata?: any
+  ): Promise<void> {
+    try {
+      await BusinessModel.createConversionEvent(businessId, {
+        eventName,
+        value: value ? value : undefined,
+        metadata
+      })
+      
+      logger.info(`Conversion logged for business: ${businessId}`, {
+        businessId,
+        eventName,
+        value
+      })
+    } catch (error) {
+      logger.error(`Failed to log conversion for business ${businessId}:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Alias for getBusinessById - used by analytics service
+   */
+  static async getById(id: string): Promise<Business | null> {
+    return this.getBusinessById(id)
+  }
+
+  /**
+   * Get conversion events for business
+   */
+  static async getConversionEvents(businessId: string, limit: number = 100): Promise<any[]> {
+    try {
+      return await BusinessModel.getConversionEvents(businessId, limit)
+    } catch (error) {
+      logger.error(`Failed to get conversion events for business ${businessId}:`, error)
+      throw new Error('Failed to retrieve conversion events')
+    }
+  }
 
 }
 

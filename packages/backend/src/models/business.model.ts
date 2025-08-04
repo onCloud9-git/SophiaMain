@@ -279,4 +279,64 @@ export class BusinessModel {
       orderBy: { updatedAt: 'desc' }
     })
   }
+
+  /**
+   * Update Analytics integration data
+   */
+  static async updateAnalyticsData(
+    id: string, 
+    data: {
+      analyticsPropertyId: string;
+      analyticsMeasurementId: string;
+      analyticsStreamId?: string;
+    }
+  ): Promise<Business> {
+    return prisma.business.update({
+      where: { id },
+      data: {
+        analyticsPropertyId: data.analyticsPropertyId,
+        analyticsMeasurementId: data.analyticsMeasurementId,
+        analyticsStreamId: data.analyticsStreamId
+      }
+    })
+  }
+
+  /**
+   * Create conversion event for business
+   */
+  static async createConversionEvent(
+    businessId: string,
+    data: {
+      eventName: string;
+      value?: number;
+      userId?: string;
+      sessionId?: string;
+      metadata?: any;
+    }
+  ): Promise<void> {
+    await prisma.conversionEvent.create({
+      data: {
+        businessId,
+        eventName: data.eventName,
+        value: data.value ? new Prisma.Decimal(data.value) : undefined,
+        userId: data.userId,
+        sessionId: data.sessionId,
+        metadata: data.metadata
+      }
+    })
+  }
+
+  /**
+   * Get conversion events for business
+   */
+  static async getConversionEvents(
+    businessId: string,
+    limit: number = 100
+  ): Promise<any[]> {
+    return prisma.conversionEvent.findMany({
+      where: { businessId },
+      orderBy: { timestamp: 'desc' },
+      take: limit
+    })
+  }
 }

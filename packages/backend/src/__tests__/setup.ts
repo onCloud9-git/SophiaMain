@@ -22,6 +22,7 @@ export const createTestUser = async (overrides = {}) => {
 
 export const cleanupTestData = async () => {
   // Clean up test data in reverse order of dependencies
+  await testPrisma.conversionEvent.deleteMany()
   await testPrisma.businessMetric.deleteMany()
   await testPrisma.marketingCampaign.deleteMany()
   await testPrisma.deployment.deleteMany()

@@ -95,21 +95,34 @@ export class JobScheduler {
       try {
         logger.info('📊 Running scheduled analytics collection')
         
-        // TODO: Get all active businesses and collect analytics for each
-        const analyticsData: AnalyticsJobData = {
-          id: `analytics_${Date.now()}`,
-          dataSource: 'google_analytics',
-          dateRange: {
-            from: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
-            to: new Date()
-          },
-          metrics: ['sessions', 'pageviews', 'users', 'conversions'],
-          reportType: 'daily',
-          priority: JobPriority.NORMAL,
-          timestamp: new Date()
-        }
+        // Get all active businesses and collect analytics for each
+        const { BusinessService } = await import('../services/business.service')
+        const activeBusinesses = await BusinessService.getActiveBusinesses()
         
-        await addJob(JobType.ANALYTICS_COLLECT, analyticsData)
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+        const today = new Date()
+        
+        // Schedule analytics collection for each active business
+        for (const business of activeBusinesses) {
+          if (business.analyticsPropertyId) {
+            const analyticsData: AnalyticsJobData = {
+              id: `analytics_${business.id}_${Date.now()}`,
+              businessId: business.id,
+              dataSource: 'google_analytics',
+              dateRange: {
+                from: yesterday.toISOString().split('T')[0], // YYYY-MM-DD format
+                to: today.toISOString().split('T')[0]
+              },
+              metrics: ['activeUsers', 'pageViews', 'conversions', 'totalRevenue', 'bounceRate', 'sessionDuration'],
+              reportType: 'daily',
+              priority: JobPriority.NORMAL,
+              timestamp: new Date()
+            }
+            
+            await addJob(JobType.ANALYTICS_COLLECT, analyticsData)
+            logger.info(`Scheduled analytics collection for business: ${business.name} (${business.id})`)
+          }
+        }
       } catch (error) {
         logger.error('Failed to schedule analytics collection job:', error)
       }
@@ -123,20 +136,34 @@ export class JobScheduler {
       try {
         logger.info('📋 Running scheduled analytics report')
         
-        const reportData: AnalyticsJobData = {
-          id: `report_${Date.now()}`,
-          dataSource: 'google_analytics',
-          dateRange: {
-            from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last week
-            to: new Date()
-          },
-          metrics: ['sessions', 'pageviews', 'users', 'conversions', 'revenue'],
-          reportType: 'weekly',
-          priority: JobPriority.NORMAL,
-          timestamp: new Date()
-        }
+        // Get all active businesses and generate reports for each
+        const { BusinessService } = await import('../services/business.service')
+        const activeBusinesses = await BusinessService.getActiveBusinesses()
         
-        await addJob(JobType.ANALYTICS_REPORT, reportData)
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        const today = new Date()
+        
+        // Schedule weekly reports for each active business
+        for (const business of activeBusinesses) {
+          if (business.analyticsPropertyId) {
+            const reportData: AnalyticsJobData = {
+              id: `report_${business.id}_${Date.now()}`,
+              businessId: business.id,
+              dataSource: 'google_analytics',
+              dateRange: {
+                from: weekAgo.toISOString().split('T')[0], // YYYY-MM-DD format
+                to: today.toISOString().split('T')[0]
+              },
+              metrics: ['activeUsers', 'pageViews', 'conversions', 'totalRevenue', 'bounceRate', 'sessionDuration'],
+              reportType: 'weekly',
+              priority: JobPriority.NORMAL,
+              timestamp: new Date()
+            }
+            
+            await addJob(JobType.ANALYTICS_REPORT, reportData)
+            logger.info(`Scheduled weekly analytics report for business: ${business.name} (${business.id})`)
+          }
+        }
       } catch (error) {
         logger.error('Failed to schedule analytics report job:', error)
       }
