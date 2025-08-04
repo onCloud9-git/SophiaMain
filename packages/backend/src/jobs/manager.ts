@@ -3,14 +3,15 @@ import { logger } from '../index'
 import { initializeQueues, closeQueues, queues, addJob, getJob, getAllQueueStats } from './queue'
 import { initializeRedis, closeRedisConnections } from '../lib/redis'
 import { JobScheduler } from './scheduler'
-import { 
+import {
   BusinessProcessor,
   MarketingProcessor,
   MarketingAutomationProcessor,
   AnalyticsProcessor,
   PaymentProcessor,
   SystemProcessor,
-  AIProcessor
+  AIProcessor,
+  WebsiteMonitoringProcessor
 } from './processors'
 import { 
   JobType, 
@@ -142,6 +143,28 @@ export class JobManager {
       
       queues['system-queue'].process(JobType.SYSTEM_HEALTH_CHECK, 1, async (job: Job) => {
         return await SystemProcessor.processSystemHealthCheck(job)
+      })
+      
+      // Website monitoring processors
+      queues['system-queue'].process('website-health-check', 3, async (job: Job) => {
+        return await WebsiteMonitoringProcessor.prototype.processWebsiteHealthCheck(job)
+      })
+      
+      queues['system-queue'].process('visual-regression-test', 2, async (job: Job) => {
+        return await WebsiteMonitoringProcessor.prototype.processVisualRegressionTest(job)
+      })
+      
+      queues['system-queue'].process('user-flow-test', 2, async (job: Job) => {
+        return await WebsiteMonitoringProcessor.prototype.processUserFlowTest(job)
+      })
+      
+      queues['system-queue'].process('lighthouse-audit', 1, async (job: Job) => {
+        // Create a new instance for processing
+        const processor = new WebsiteMonitoringProcessor()
+        return await processor.processWebsiteHealthCheck({
+          ...job,
+          data: { ...job.data, includePerformanceAudit: true }
+        })
       })
     }
     
@@ -292,6 +315,57 @@ export class JobManager {
     return await this.addJob(jobType, jobData, {
       priority: 8,
       attempts: 3
+    })
+  }
+
+  // Create a website health check job
+  static async scheduleWebsiteHealthCheck(businessId: string, options?: {
+    includePerformanceAudit?: boolean;
+    includePaymentTest?: boolean;
+    includeVisualRegression?: boolean;
+  }): Promise<Job> {
+    const jobData = {
+      businessId,
+      includePerformanceAudit: options?.includePerformanceAudit || false,
+      includePaymentTest: options?.includePaymentTest || false,
+      includeVisualRegression: options?.includeVisualRegression || false,
+      timestamp: new Date()
+    }
+    
+    return await this.addJob('website-health-check' as JobType, jobData, {
+      priority: 6,
+      attempts: 3,
+      delay: 0
+    })
+  }
+
+  // Create a visual regression test job
+  static async scheduleVisualRegressionTest(businessId: string, baselineScreenshot?: string): Promise<Job> {
+    const jobData = {
+      businessId,
+      baselineScreenshot,
+      tolerance: 0.1,
+      timestamp: new Date()
+    }
+    
+    return await this.addJob('visual-regression-test' as JobType, jobData, {
+      priority: 4,
+      attempts: 2
+    })
+  }
+
+  // Create a user flow test job
+  static async scheduleUserFlowTest(businessId: string, flowType: 'payment' | 'signup' | 'custom', customFlow?: any[]): Promise<Job> {
+    const jobData = {
+      businessId,
+      flowType,
+      customFlow,
+      timestamp: new Date()
+    }
+    
+    return await this.addJob('user-flow-test' as JobType, jobData, {
+      priority: 5,
+      attempts: 2
     })
   }
 

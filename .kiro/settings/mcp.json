@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "puppeteer": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": [
+        "puppeteer_navigate",
+        "puppeteer_screenshot",
+        "puppeteer_click",
+        "puppeteer_fill",
+        "puppeteer_evaluate",
+        "puppeteer_hover",
+        "puppeteer_select"
+      ]
+    },
+    "n8n-mcp": {
+      "command": "uvx",
+      "args": ["n8n-mcp-tools"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "get_node_essentials",
+        "search_nodes",
+        "validate_node_operation"
+      ]
+    }
+  }
+}
