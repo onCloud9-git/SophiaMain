@@ -5,6 +5,7 @@ import {
   JobResult 
 } from '../types'
 import { googleAdsService } from '../../services/google-ads.service'
+import { facebookAdsService } from '../../services/facebook-ads.service'
 import { BusinessModel } from '../../models/business.model'
 
 // Marketing job processor
@@ -205,34 +206,96 @@ export class MarketingProcessor {
   }
   
   private static async createFacebookAdsCampaign(data: MarketingCampaignJobData): Promise<any> {
-    // TODO: Implement Facebook Graph API integration
     logger.info('Creating Facebook Ads campaign', { data })
     
-    // Placeholder - replace with actual Facebook Graph API calls
-    return {
-      campaignId: `fb_${Date.now()}`,
-      platform: 'facebook_ads',
-      status: 'active',
-      budget: data.budget,
-      targetAudience: data.targetAudience,
-      demographics: data.demographics,
-      estimatedReach: Math.floor(Math.random() * 15000) + 2000
+    try {
+      // Get business data
+      const business = await BusinessModel.getById(data.businessId!)
+      if (!business) {
+        throw new Error(`Business not found: ${data.businessId}`)
+      }
+
+      // Create Facebook campaign data
+      const facebookCampaignData = {
+        name: data.campaignName,
+        budget: data.budget,
+        objective: 'CONVERSIONS' as const,
+        businessId: data.businessId!,
+        targetAudience: data.targetAudience ? {
+          minAge: data.demographics?.ageRange?.min || 25,
+          maxAge: data.demographics?.ageRange?.max || 55,
+          genders: data.demographics?.gender === 'male' ? [1] : 
+                   data.demographics?.gender === 'female' ? [2] : [0],
+          countries: data.demographics?.location?.countries || ['US', 'CA', 'GB'],
+          interests: data.targetAudience?.interests || [],
+          behaviors: data.targetAudience?.behaviors || []
+        } : undefined,
+        placement: ['facebook', 'instagram'] as ('facebook' | 'instagram')[]
+      }
+
+      // Create campaign using FacebookAdsService
+      const result = await facebookAdsService.createCampaign(business, facebookCampaignData)
+      
+      return {
+        campaignId: result.campaignId,
+        platform: result.platform,
+        status: result.status,
+        budget: result.budget,
+        facebookId: result.facebookId,
+        adSetId: result.adSetId,
+        estimatedReach: result.estimatedReach || Math.floor(Math.random() * 15000) + 2000
+      }
+      
+    } catch (error) {
+      logger.error('Facebook campaign creation failed:', error)
+      throw error
     }
   }
   
   private static async createInstagramAdsCampaign(data: MarketingCampaignJobData): Promise<any> {
-    // TODO: Implement Instagram API integration (via Facebook Graph API)
     logger.info('Creating Instagram Ads campaign', { data })
     
-    // Placeholder - replace with actual Instagram API calls
-    return {
-      campaignId: `ig_${Date.now()}`,
-      platform: 'instagram_ads',
-      status: 'active',
-      budget: data.budget,
-      targetAudience: data.targetAudience,
-      demographics: data.demographics,
-      estimatedReach: Math.floor(Math.random() * 8000) + 1500
+    try {
+      // Get business data
+      const business = await BusinessModel.getById(data.businessId!)
+      if (!business) {
+        throw new Error(`Business not found: ${data.businessId}`)
+      }
+
+      // Create Instagram campaign data (using Facebook Graph API)
+      const instagramCampaignData = {
+        name: `${data.campaignName} - Instagram`,
+        budget: data.budget,
+        objective: 'REACH' as const, // Instagram often works better with reach objective
+        businessId: data.businessId!,
+        targetAudience: data.targetAudience ? {
+          minAge: data.demographics?.ageRange?.min || 18,
+          maxAge: data.demographics?.ageRange?.max || 45, // Instagram skews younger
+          genders: data.demographics?.gender === 'male' ? [1] : 
+                   data.demographics?.gender === 'female' ? [2] : [0],
+          countries: data.demographics?.location?.countries || ['US', 'CA', 'GB'],
+          interests: data.targetAudience?.interests || [],
+          behaviors: data.targetAudience?.behaviors || []
+        } : undefined,
+        placement: ['instagram'] as ('instagram')[] // Instagram only
+      }
+
+      // Create campaign using FacebookAdsService (works for Instagram too)
+      const result = await facebookAdsService.createCampaign(business, instagramCampaignData)
+      
+      return {
+        campaignId: result.campaignId,
+        platform: 'instagram_ads',
+        status: result.status,
+        budget: result.budget,
+        facebookId: result.facebookId, // Instagram uses Facebook's system
+        adSetId: result.adSetId,
+        estimatedReach: result.estimatedReach || Math.floor(Math.random() * 8000) + 1500
+      }
+      
+    } catch (error) {
+      logger.error('Instagram campaign creation failed:', error)
+      throw error
     }
   }
   

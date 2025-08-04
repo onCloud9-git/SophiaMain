@@ -6,6 +6,7 @@ import {
   JobPriority,
   BusinessCreationJobData,
   MarketingCampaignJobData,
+  MarketingAutomationJobData,
   AnalyticsJobData,
   PaymentJobData,
   AIJobData 
@@ -183,6 +184,40 @@ export class JobScheduler {
   
   // Schedule marketing automation jobs
   private static scheduleMarketingJobs(): void {
+    // Daily Sophia AI Marketing Automation Workflow at 9 AM
+    const automationWorkflowJob = cron.schedule('0 9 * * *', async () => {
+      try {
+        logger.info('🤖 Running Sophia AI Marketing Automation Workflow')
+        
+        const automationData: MarketingAutomationJobData = {
+          id: `sophia_automation_${Date.now()}`,
+          evaluationPeriod: 14, // 2-week evaluation
+          analysisScope: 'all_businesses',
+          decisionThresholds: {
+            minROAS: 2.0,
+            minPerformanceScore: 40,
+            scaleThreshold: 70,
+            pauseThreshold: 30
+          },
+          enableABTesting: true,
+          notificationSettings: {
+            email: true,
+            slack: true
+          },
+          priority: JobPriority.HIGH,
+          timestamp: new Date()
+        }
+        
+        await addJob(JobType.MARKETING_AUTOMATION_WORKFLOW, automationData)
+        logger.info('✅ Sophia AI Marketing Automation Workflow scheduled successfully')
+      } catch (error) {
+        logger.error('Failed to schedule Sophia AI marketing automation workflow:', error)
+      }
+    }, {
+      scheduled: false,
+      timezone: 'UTC'
+    })
+    
     // Daily marketing campaign monitoring at 10 AM
     const monitoringJob = cron.schedule('0 10 * * *', async () => {
       try {
@@ -220,13 +255,15 @@ export class JobScheduler {
       timezone: 'UTC'
     })
     
+    this.scheduledJobs.set('sophia-marketing-automation', automationWorkflowJob)
     this.scheduledJobs.set('marketing-monitoring', monitoringJob)
     this.scheduledJobs.set('marketing-optimization', optimizationJob)
     
+    automationWorkflowJob.start()
     monitoringJob.start()
     optimizationJob.start()
     
-    logger.info('✅ Marketing jobs scheduled')
+    logger.info('✅ Marketing jobs scheduled including Sophia AI Automation')
   }
   
   // Schedule payment jobs

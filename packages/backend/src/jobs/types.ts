@@ -11,6 +11,7 @@ export enum JobType {
   MARKETING_CAMPAIGN_CREATE = 'marketing:campaign:create',
   MARKETING_CAMPAIGN_MONITOR = 'marketing:campaign:monitor',
   MARKETING_CAMPAIGN_OPTIMIZE = 'marketing:campaign:optimize',
+  MARKETING_AUTOMATION_WORKFLOW = 'marketing:automation:workflow',
   
   // Analytics jobs
   ANALYTICS_COLLECT = 'analytics:collect',
@@ -88,6 +89,52 @@ export interface MarketingCampaignJobData extends BaseJobData {
     gender?: string
     location?: string[]
     interests?: string[]
+  }
+}
+
+// Marketing automation workflow job data
+export interface MarketingAutomationJobData extends BaseJobData {
+  evaluationPeriod: number // days (default: 14)
+  analysisScope: 'all_businesses' | 'specific_business'
+  targetBusinessIds?: string[]
+  decisionThresholds?: {
+    minROAS: number
+    minPerformanceScore: number
+    scaleThreshold: number
+    pauseThreshold: number
+  }
+  enableABTesting?: boolean
+  abTestConfigs?: ABTestConfig[]
+  notificationSettings?: {
+    email: boolean
+    slack: boolean
+    webhook?: string
+  }
+}
+
+// A/B Testing configuration
+export interface ABTestConfig {
+  testId: string
+  campaignId: string
+  testType: 'budget' | 'creative' | 'targeting' | 'bidding'
+  variants: ABTestVariant[]
+  duration: number // days
+  trafficSplit: number[] // percentage for each variant
+  successMetric: 'ctr' | 'cpc' | 'conversions' | 'roas'
+}
+
+// A/B Test variant configuration
+export interface ABTestVariant {
+  id: string
+  name: string
+  description: string
+  config: Record<string, any> // variant-specific configuration
+  trafficPercentage: number
+  metrics?: {
+    impressions: number
+    clicks: number
+    conversions: number
+    cost: number
   }
 }
 

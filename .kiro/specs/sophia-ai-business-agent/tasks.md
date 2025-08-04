@@ -128,7 +128,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
   - Write integration tests for Google Ads operations
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 14. Marketing Automation Workflow and Decision Engine
+- [x] 14. Marketing Automation Workflow and Decision Engine
   - Create marketing automation job that runs daily via cron
   - Implement performance analysis algorithms (2-week evaluation)
   - Create automated decision logic for campaign scaling/pausing
@@ -137,7 +137,7 @@ Convert the feature design into a series of prompts for a code-generation LLM th
   - Write comprehensive tests for marketing automation logic
   - _Requirements: 4.2, 4.3, 4.4, 4.5, 8.2, 8.4, 10.3, 10.4_
 
-- [ ] 15. Facebook Ads Integration and Multi-Platform Campaigns
+- [x] 15. Facebook Ads Integration and Multi-Platform Campaigns
   - Integrate Facebook Graph API for advertising
   - Implement cross-platform campaign coordination
   - Create unified campaign performance tracking

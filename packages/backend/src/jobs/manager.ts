@@ -6,6 +6,7 @@ import { JobScheduler } from './scheduler'
 import { 
   BusinessProcessor,
   MarketingProcessor,
+  MarketingAutomationProcessor,
   AnalyticsProcessor,
   PaymentProcessor,
   SystemProcessor,
@@ -16,6 +17,7 @@ import {
   JobResult,
   BusinessCreationJobData,
   MarketingCampaignJobData,
+  MarketingAutomationJobData,
   AnalyticsJobData,
   PaymentJobData,
   AIJobData
@@ -91,6 +93,10 @@ export class JobManager {
       
       queues['marketing-queue'].process(JobType.MARKETING_CAMPAIGN_OPTIMIZE, 2, async (job: Job) => {
         return await MarketingProcessor.processCampaignOptimization(job)
+      })
+      
+      queues['marketing-queue'].process(JobType.MARKETING_AUTOMATION_WORKFLOW, 1, async (job: Job<MarketingAutomationJobData>) => {
+        return await MarketingAutomationProcessor.processMarketingAutomation(job)
       })
     }
     
@@ -286,6 +292,20 @@ export class JobManager {
     return await this.addJob(jobType, jobData, {
       priority: 8,
       attempts: 3
+    })
+  }
+
+  // Create a marketing automation workflow job
+  static async runMarketingAutomation(data: Omit<MarketingAutomationJobData, 'id'>): Promise<Job<MarketingAutomationJobData>> {
+    const jobData: MarketingAutomationJobData = {
+      ...data,
+      id: `marketing_automation_${Date.now()}`,
+      timestamp: new Date()
+    }
+    
+    return await this.addJob(JobType.MARKETING_AUTOMATION_WORKFLOW, jobData, {
+      priority: 10, // High priority for Sophia AI automation
+      attempts: 2
     })
   }
   
